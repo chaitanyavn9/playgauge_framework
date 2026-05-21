@@ -1,0 +1,52 @@
+{
+  "name": "playgauge_framework",
+  "version": "1.0.0",
+  "description": "Enterprise QA Automation Framework — Playwright + Gauge + TypeScript with Observability, AI Failure Analysis and PostgreSQL telemetry storage.",
+  "author": "V N Chaitanya <chaitanyavn9@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "gauge:dev":        "GAUGE_ENV=dev gauge run specs/",
+    "gauge:saucedemo":  "GAUGE_ENV=saucedemo gauge run specs/saucedemo/",
+    "gauge:orangehrm":  "GAUGE_ENV=orangehrm gauge run specs/orangehrm/",
+    "gauge:staging":    "GAUGE_ENV=staging gauge run specs/",
+    "gauge:prod":       "GAUGE_ENV=prod gauge run specs/",
+    "gauge:smoke":      "GAUGE_ENV=dev gauge run --tags smoke specs/",
+    "gauge:regression": "GAUGE_ENV=dev gauge run --tags regression specs/",
+    "gauge:api":        "GAUGE_ENV=dev gauge run specs/api/",
+    "allure:generate":  "allure generate allure-results --clean -o allure-report",
+    "allure:open":      "allure open allure-report",
+    "allure:serve":     "allure serve allure-results",
+    "ai:analyze":       "ts-node tests/ai-analyzer/run-analyzer.ts",
+    "db:migrate":       "ts-node tests/db/migrate.ts",
+    "db:seed":          "ts-node tests/db/seed.ts",
+    "lint":             "eslint tests/ --ext .ts",
+    "format":           "prettier --write \"**/*.{ts,json,md}\"",
+    "typecheck":        "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@playwright/test": "^1.44.0",
+    "allure-js-commons": "^2.15.1",
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0",
+    "playwright": "^1.44.0",
+    "winston": "^3.13.0"
+  },
+  "optionalDependencies": {
+    "openai": "^4.67.0",
+    "@google/generative-ai": "^0.21.0"
+  },
+  "devDependencies": {
+    "@getgauge/cli": "^1.6.7",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "allure-commandline": "^2.29.0",
+    "eslint": "^9.5.0",
+    "prettier": "^3.3.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

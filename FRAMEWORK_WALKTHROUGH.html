@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>playgauge_framework — Visual Walkthrough</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #e8eaf0;
+    --text-muted: #8892b0;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --blue: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; }
+
+  /* ── Slide container ── */
+  #deck { width: 100vw; height: 100vh; position: relative; }
+  .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; padding: 48px 64px 32px; overflow-y: auto; }
+  .slide.active { display: flex; }
+
+  /* ── Navigation ── */
+  #nav { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; z-index: 100; background: rgba(26,29,39,0.95); border: 1px solid var(--border); border-radius: 32px; padding: 10px 20px; backdrop-filter: blur(8px); }
+  #nav button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 16px; transition: all .2s; }
+  #nav button:hover { background: var(--accent); border-color: var(--accent); }
+  #slide-counter { font-size: 13px; color: var(--text-muted); min-width: 80px; text-align: center; }
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); transition: width .3s; z-index: 100; }
+
+  /* ── Slide thumb nav ── */
+  #thumbs { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 100; }
+  .thumb { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all .2s; }
+  .thumb.active { background: var(--accent); transform: scale(1.4); }
+
+  /* ── Typography ── */
+  .slide-tag { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  h1 { font-size: 42px; font-weight: 800; line-height: 1.15; margin-bottom: 16px; }
+  h2 { font-size: 28px; font-weight: 700; margin-bottom: 20px; }
+  h3 { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: var(--accent2); }
+  p { font-size: 16px; line-height: 1.7; color: var(--text-muted); margin-bottom: 14px; }
+  .lead { font-size: 20px; color: var(--text); line-height: 1.6; }
+  .highlight { color: var(--accent); font-weight: 600; }
+  .highlight2 { color: var(--accent2); font-weight: 600; }
+
+  /* ── Grid layouts ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card.accent-l { border-left: 3px solid var(--accent); }
+  .card.accent-g { border-left: 3px solid var(--green); }
+  .card.accent-r { border-left: 3px solid var(--red); }
+  .card.accent-y { border-left: 3px solid var(--yellow); }
+  .card.accent-b { border-left: 3px solid var(--blue); }
+  .card h3 { color: var(--text); font-size: 15px; margin-bottom: 8px; }
+  .card p { font-size: 13px; margin-bottom: 0; }
+  .card-icon { font-size: 28px; margin-bottom: 10px; }
+
+  /* ── Code blocks ── */
+  pre { background: #0d0f1a; border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 13px; overflow-x: auto; margin: 12px 0; line-height: 1.6; }
+  .kw { color: #c792ea; }
+  .str { color: #c3e88d; }
+  .cmt { color: #546e7a; font-style: italic; }
+  .fn { color: #82aaff; }
+  .num { color: #f78c6c; }
+  .typ { color: #ffcb6b; }
+  .tag-c { color: #89ddff; }
+  .prop { color: #f07178; }
+
+  /* ── Flow diagram ── */
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 16px 0; }
+  .flow-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .flow-box.green { border-color: var(--green); }
+  .flow-box.blue  { border-color: var(--blue); }
+  .flow-box.yellow{ border-color: var(--yellow); }
+  .flow-box.red   { border-color: var(--red); }
+  .flow-arrow { color: var(--text-muted); font-size: 20px; padding: 0 8px; }
+
+  /* ── Badges / tags ── */
+  .badge { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; margin: 2px; letter-spacing: 1px; text-transform: uppercase; }
+  .badge.smoke  { border-color: var(--green); color: var(--green); }
+  .badge.reg    { border-color: var(--blue); color: var(--blue); }
+  .badge.mod    { border-color: var(--yellow); color: var(--yellow); }
+  .badge.orange { border-color: #ff9d5c; color: #ff9d5c; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); color: var(--accent); text-align: left; padding: 10px 14px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); color: var(--text-muted); }
+  tr:hover td { background: var(--surface2); }
+
+  /* ── List ── */
+  .check-list { list-style: none; }
+  .check-list li { padding: 6px 0; font-size: 14px; color: var(--text-muted); padding-left: 24px; position: relative; }
+  .check-list li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+  .cross-list li::before { content: "✗"; color: var(--red); }
+
+  /* ── Category chips ── */
+  .cat { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; margin: 4px; }
+  .cat.flaky { background: rgba(251,191,36,.15); color: var(--yellow); border: 1px solid rgba(251,191,36,.3); }
+  .cat.env   { background: rgba(96,165,250,.15); color: var(--blue); border: 1px solid rgba(96,165,250,.3); }
+  .cat.bug   { background: rgba(248,113,113,.15); color: var(--red); border: 1px solid rgba(248,113,113,.3); }
+  .cat.code  { background: rgba(108,99,255,.15); color: var(--accent); border: 1px solid rgba(108,99,255,.3); }
+  .cat.data  { background: rgba(0,212,170,.15); color: var(--accent2); border: 1px solid rgba(0,212,170,.3); }
+
+  /* ── Allure section pills ── */
+  .allure-pill { background: var(--surface2); border-radius: 8px; padding: 12px 16px; margin: 6px 0; display: flex; gap: 12px; align-items: flex-start; }
+  .allure-pill .icon { font-size: 22px; flex-shrink: 0; }
+  .allure-pill h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+  .allure-pill p { font-size: 12px; margin: 0; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .slide { padding: 32px 24px 24px; }
+    h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="thumbs"></div>
+<div id="deck">
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 1 -->
+<div class="slide active">
+  <div class="slide-tag">Framework Overview</div>
+  <h1>playgauge_framework</h1>
+  <p class="lead">An enterprise QA automation framework combining <span class="highlight">Playwright</span>, <span class="highlight">Gauge</span>, <span class="highlight">TypeScript</span>, <span class="highlight">Allure</span>, <span class="highlight">PostgreSQL</span> and <span class="highlight2">AI Failure Analysis</span>.</p>
+  <div style="margin:32px 0 16px">
+    <div class="flow">
+      <div class="flow-box">Gauge Spec (.md)</div><div class="flow-arrow">→</div>
+      <div class="flow-box blue">Step Implementations</div><div class="flow-arrow">→</div>
+      <div class="flow-box yellow">Component Model Pages</div><div class="flow-arrow">→</div>
+      <div class="flow-box green">Playwright Browser</div>
+    </div>
+    <div class="flow" style="margin-top:8px">
+      <div class="flow-box green">Observability Collector</div><div class="flow-arrow">→</div>
+      <div class="flow-box blue">Allure Report</div><div class="flow-arrow">→</div>
+      <div class="flow-box yellow">AI Failure Analyser</div><div class="flow-arrow">→</div>
+      <div class="flow-box red">Grafana (CI)</div>
+    </div>
+  </div>
+  <div class="grid-4" style="margin-top:8px">
+    <div class="card accent-l"><div class="card-icon">📝</div><h3>BDD Specs</h3><p>Human-readable Gauge Markdown scenarios reviewed by PMs and BAs</p></div>
+    <div class="card accent-b"><div class="card-icon">🧩</div><h3>Component Model</h3><p>Reusable UI components — zero raw locators in pages or steps</p></div>
+    <div class="card accent-g"><div class="card-icon">🔭</div><h3>Auto-Observability</h3><p>Console, network and API telemetry captured on every test automatically</p></div>
+    <div class="card accent-y"><div class="card-icon">🤖</div><h3>AI Analysis</h3><p>Claude AI classifies failures and suggests root causes</p></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 2 -->
+<div class="slide">
+  <div class="slide-tag">Tech Stack</div>
+  <h2>What's Inside the Box</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <table>
+      <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+      <tr><td>Test Runner</td><td><strong style="color:var(--accent)">Gauge</strong></td><td>BDD Markdown spec runner</td></tr>
+      <tr><td>Browser</td><td><strong style="color:var(--blue)">Playwright</strong></td><td>Fast, reliable browser automation</td></tr>
+      <tr><td>Language</td><td><strong style="color:var(--yellow)">TypeScript 5</strong></td><td>Type-safe test code</td></tr>
+      <tr><td>Pattern</td><td><strong style="color:var(--green)">Component Model</strong></td><td>Reusable UI widgets</td></tr>
+      <tr><td>Reporting</td><td><strong style="color:var(--accent)">Allure</strong></td><td>Rich HTML reports</td></tr>
+      <tr><td>Database</td><td><strong style="color:var(--blue)">PostgreSQL 15</strong></td><td>Telemetry — CI only</td></tr>
+      <tr><td>AI</td><td><strong style="color:var(--accent2)">Claude 3.5 Sonnet</strong></td><td>Failure classification</td></tr>
+      <tr><td>Dashboards</td><td><strong style="color:var(--yellow)">Grafana</strong></td><td>Metrics — CI only</td></tr>
+      <tr><td>CI/CD</td><td><strong style="color:var(--red)">GitHub Actions</strong></td><td>Nightly pipeline</td></tr>
+    </table>
+    <div>
+      <h3 style="margin-bottom:16px">Why This Stack?</h3>
+      <ul class="check-list">
+        <li>Gauge specs are <strong>readable by non-engineers</strong> — product managers can write acceptance criteria directly as test scenarios</li>
+        <li>Playwright is <strong>faster and more reliable</strong> than Selenium — built-in auto-wait, network interception, trace viewer</li>
+        <li>Component Model means <strong>selector changes in one place only</strong> — not scattered across 50 test files</li>
+        <li>Observability collector gives <strong>zero-effort diagnostics</strong> — no manual logging required</li>
+        <li>AI analysis <strong>reduces triage time</strong> from hours to minutes</li>
+        <li>Grafana gives <strong>team-wide visibility</strong> without everyone needing to run tests</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 3 -->
+<div class="slide">
+  <div class="slide-tag">Design Pattern</div>
+  <h2>Component Model Architecture</h2>
+  <p>The key difference between this framework and a traditional Page Object Model (POM).</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>❌ Traditional POM</h3>
+      <pre><span class="cmt">// LoginPage.ts — locators scattered everywhere</span>
+<span class="kw">class</span> <span class="typ">LoginPage</span> {
+  <span class="fn">async</span> <span class="fn">login</span>(user, pass) {
+    <span class="kw">await</span> page.<span class="fn">locator</span>(<span class="str">'#username'</span>).<span class="fn">fill</span>(user);
+    <span class="kw">await</span> page.<span class="fn">locator</span>(<span class="str">'#password'</span>).<span class="fn">fill</span>(pass);
+    <span class="kw">await</span> page.<span class="fn">locator</span>(<span class="str">'button.submit'</span>).<span class="fn">click</span>();
+  }
+}</pre>
+      <p>When <code>#username</code> changes → update every page that uses it.</p>
+    </div>
+    <div>
+      <h3>✅ Component Model</h3>
+      <pre><span class="cmt">// SauceLoginPage.ts — composes components</span>
+<span class="kw">class</span> <span class="typ">SauceLoginPage</span> <span class="kw">extends</span> <span class="typ">BasePage</span> {
+  <span class="prop">usernameInput</span> = <span class="kw">new</span> <span class="typ">InputComponent</span>(
+    page, obs, { css: <span class="str">'[data-test="username"]'</span> }
+  );
+  <span class="prop">loginButton</span> = <span class="kw">new</span> <span class="typ">ButtonComponent</span>(
+    page, obs, { css: <span class="str">'[data-test="login-button"]'</span> }
+  );
+}</pre>
+      <p>Selector changes in <strong>InputComponent</strong> once → fixes everywhere.</p>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="card accent-l"><h3>BaseComponent</h3><p>Abstract base with <code>interact()</code>, <code>waitForVisible()</code>, <code>assertVisible()</code>, auto-wires ObservabilityCollector</p></div>
+    <div class="card accent-b"><h3>Concrete Components</h3><p>InputComponent, ButtonComponent, DropdownComponent, DataTableComponent — each knows how to interact with that UI type</p></div>
+    <div class="card accent-g"><h3>Page = Composer</h3><p>Pages declare which components they contain. Steps call page methods. Pages call component methods. Components touch the browser.</p></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 4 -->
+<div class="slide">
+  <div class="slide-tag">Directory Guide</div>
+  <h2>Where Everything Lives</h2>
+  <div class="grid-2" style="margin-top:4px">
+    <div>
+      <div class="allure-pill">
+        <div class="icon">📁</div>
+        <div><h4>specs/ — Write BDD scenarios here</h4><p>Gauge Markdown (.md) files. One folder per application or module. Non-engineers can read and edit these.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🔌</div>
+        <div><h4>tests/step-implementations/ — Wire steps to pages</h4><p>TypeScript @Step functions that call page methods. One file per module. No locators allowed here.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🧩</div>
+        <div><h4>tests/components/ — Reusable UI widgets</h4><p>form/, data/, feedback/, navigation/ sub-folders. Add new components here when a new UI pattern appears.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">📄</div>
+        <div><h4>tests/pages/ — Thin orchestrators</h4><p>Page objects that declare which components they use. One page per screen. Zero raw locators.</p></div>
+      </div>
+    </div>
+    <div>
+      <div class="allure-pill">
+        <div class="icon">🌿</div>
+        <div><h4>env/ — Per-environment configuration</h4><p>Gauge .properties files. One folder per environment (dev, staging, saucedemo, etc.). DB_ENABLED=false for local.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🎭</div>
+        <div><h4>playwright-tests/ — Standalone specs</h4><p>Pure Playwright .spec.ts files, no Gauge needed. Good for quick debugging or onboarding new team members.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">📊</div>
+        <div><h4>tests/db/ + tests/ai-analyzer/ — CI only</h4><p>PostgreSQL schema, repository, and AI failure analyser. Only activated when DB_ENABLED=true.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🔭</div>
+        <div><h4>tests/observability/ — Auto-telemetry</h4><p>Never edit unless extending the telemetry schema. Runs automatically on every scenario via hooks.ts.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 5 -->
+<div class="slide">
+  <div class="slide-tag">Writing Tests — Step 1</div>
+  <h2>Writing Gauge Spec Files (.md)</h2>
+  <p>Spec files live in <code>specs/&lt;module&gt;/</code>. Use plain English. Tags drive selective execution.</p>
+  <div class="grid-2" style="margin-top:4px">
+    <div>
+      <h3>Anatomy of a spec file</h3>
+      <pre><span class="cmt"># Module Title                   ← spec heading</span>
+<span class="cmt">
+</span><span class="tag-c">Tags: saucedemo, regression</span>     <span class="cmt">← spec-level tags</span>
+
+<span class="cmt">## Scenario: Successful checkout  ← scenario heading</span>
+<span class="tag-c">Tags: smoke</span>                      <span class="cmt">← scenario-level tag</span>
+<span class="cmt">
+</span><span class="str">* Open SauceDemo login page</span>      <span class="cmt">← step (must match @Step)</span>
+<span class="str">* Login as "standard_user"</span>
+<span class="str">* Add "Sauce Labs Backpack" to cart</span>
+<span class="str">* Proceed to checkout</span>
+<span class="str">* Complete order as "Jane" "Doe" "94107"</span>
+<span class="str">* Verify order confirmed</span></pre>
+      <h3 style="margin-top:16px">Parameterised steps</h3>
+      <pre><span class="str">## Login fails for invalid users</span>
+<span class="str">
+</span><span class="str">* Login as "&lt;username&gt;" with password "&lt;password&gt;"</span>
+<span class="str">* Verify login error is shown</span>
+<span class="str">
+</span>| username     | password   |
+|-------------|------------|
+| invalid_user | wrong_pass |
+| ""           | secret     |</pre>
+    </div>
+    <div>
+      <h3>Tagging strategy</h3>
+      <table style="margin-bottom:16px">
+        <tr><th>Tag</th><th>Meaning</th><th>Usage</th></tr>
+        <tr><td><span class="badge smoke">smoke</span></td><td>Critical path</td><td>Run before every merge</td></tr>
+        <tr><td><span class="badge reg">regression</span></td><td>Full suite</td><td>Nightly CI run</td></tr>
+        <tr><td><span class="badge mod">saucedemo</span></td><td>Application</td><td>Run specific app</td></tr>
+        <tr><td><span class="badge orange">login</span></td><td>Module</td><td>Run specific feature</td></tr>
+        <tr><td><span class="badge mod">mymodule</span></td><td>Custom</td><td>Your team's tag</td></tr>
+      </table>
+      <h3>Running by tag</h3>
+      <pre><span class="cmt"># Smoke only (fast, pre-merge)</span>
+gauge run <span class="str">--tags smoke</span> specs/
+
+<span class="cmt"># Full regression (nightly CI)</span>
+gauge run <span class="str">--tags regression</span> specs/
+
+<span class="cmt"># Specific module</span>
+gauge run <span class="str">--tags login</span> specs/
+
+<span class="cmt"># Combined — smoke AND saucedemo</span>
+gauge run <span class="str">--tags "smoke &amp; saucedemo"</span> specs/</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 6 -->
+<div class="slide">
+  <div class="slide-tag">Writing Tests — Step 2</div>
+  <h2>Step Implementations</h2>
+  <p>Live in <code>tests/step-implementations/&lt;module&gt;/</code>. Connect English steps to page methods. <strong>No locators allowed here.</strong></p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Pattern</h3>
+      <pre><span class="kw">import</span> { <span class="typ">Step</span>, <span class="typ">DataStore</span> } <span class="kw">from</span> <span class="str">'gauge-ts'</span>;
+<span class="kw">import</span> { <span class="typ">Page</span> } <span class="kw">from</span> <span class="str">'playwright'</span>;
+<span class="kw">import</span> { <span class="typ">SauceLoginPage</span> } <span class="kw">from</span> <span class="str">'../../pages/saucedemo/SauceLoginPage'</span>;
+<span class="kw">import</span> { <span class="typ">ObservabilityCollector</span> } <span class="kw">from</span> <span class="str">'../../observability/ObservabilityCollector'</span>;
+
+<span class="cmt">// ── helpers (same pattern in every module) ──</span>
+<span class="fn">function</span> <span class="fn">getPage</span>() { <span class="kw">return</span> DataStore.ScenarioDataStore.<span class="fn">get</span>(<span class="str">'page'</span>) <span class="kw">as</span> <span class="typ">Page</span>; }
+<span class="fn">function</span> <span class="fn">getObs</span>()  { <span class="kw">return</span> DataStore.ScenarioDataStore.<span class="fn">get</span>(<span class="str">'obs'</span>) <span class="kw">as</span> <span class="typ">ObservabilityCollector</span>; }
+<span class="fn">function</span> <span class="fn">login</span>()   { <span class="kw">return</span> <span class="kw">new</span> <span class="typ">SauceLoginPage</span>(<span class="fn">getPage</span>(), <span class="fn">getObs</span>()); }
+
+<span class="cmt">// ── step functions ──</span>
+@<span class="typ">Step</span>(<span class="str">'Open SauceDemo login page'</span>)
+<span class="fn">async function</span> <span class="fn">openSauceLogin</span>(): <span class="typ">Promise</span>&lt;<span class="typ">void</span>&gt; {
+  <span class="kw">await</span> <span class="fn">login</span>().<span class="fn">open</span>();
+}
+
+@<span class="typ">Step</span>(<span class="str">'Login as &lt;username&gt;'</span>)
+<span class="fn">async function</span> <span class="fn">loginAs</span>(username: <span class="typ">string</span>): <span class="typ">Promise</span>&lt;<span class="typ">void</span>&gt; {
+  <span class="kw">await</span> <span class="fn">login</span>().<span class="fn">loginAs</span>(username, <span class="str">'secret_sauce'</span>);
+}</pre>
+    </div>
+    <div>
+      <h3>Rules for step implementations</h3>
+      <ul class="check-list" style="margin-bottom:20px">
+        <li>One file per application module</li>
+        <li>Step text must exactly match the spec file wording</li>
+        <li>Always get <code>page</code> and <code>obs</code> from DataStore</li>
+        <li>Instantiate page objects inside helper functions (lazy, fresh per call)</li>
+        <li>Call page methods — never Playwright APIs directly</li>
+        <li>Parameters in step text use angle brackets: <code>&lt;username&gt;</code></li>
+      </ul>
+      <ul class="check-list cross-list">
+        <li>Don't import Playwright locators here</li>
+        <li>Don't call <code>page.locator()</code> here</li>
+        <li>Don't assert with raw <code>expect()</code> here — keep assertions in pages/components</li>
+      </ul>
+      <div class="card accent-y" style="margin-top:16px">
+        <h3>💡 How DataStore works</h3>
+        <p><code>hooks.ts</code> creates a fresh Playwright page + ObservabilityCollector before every scenario and stores them in Gauge's ScenarioDataStore. Your step files read them back. This is how the browser is shared across all steps of one scenario.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 7 -->
+<div class="slide">
+  <div class="slide-tag">Writing Tests — Step 3</div>
+  <h2>Components — The Heart of the Framework</h2>
+  <p>Components live in <code>tests/components/</code>. They wrap Playwright locators and expose human-friendly methods. <strong>Add a new component type here when you encounter a new UI pattern.</strong></p>
+  <div class="grid-2" style="margin-top:4px">
+    <div>
+      <h3>Available components</h3>
+      <table>
+        <tr><th>Component</th><th>Use for</th></tr>
+        <tr><td><strong>InputComponent</strong></td><td>Text fields, search boxes, textareas</td></tr>
+        <tr><td><strong>ButtonComponent</strong></td><td>Buttons, links, icon buttons</td></tr>
+        <tr><td><strong>DropdownComponent</strong></td><td>Native &lt;select&gt; and custom dropdowns</td></tr>
+        <tr><td><strong>CheckboxComponent</strong></td><td>Checkboxes, radio buttons, toggles</td></tr>
+        <tr><td><strong>DataTableComponent</strong></td><td>Data grids, sortable tables</td></tr>
+        <tr><td><strong>PaginationComponent</strong></td><td>Paginated data tables</td></tr>
+        <tr><td><strong>SearchComponent</strong></td><td>Search bars with result lists</td></tr>
+        <tr><td><strong>AlertComponent</strong></td><td>Inline alerts, validation messages</td></tr>
+        <tr><td><strong>ToastComponent</strong></td><td>Toast notifications</td></tr>
+        <tr><td><strong>ModalComponent</strong></td><td>Dialogs, confirmation modals</td></tr>
+        <tr><td><strong>NavBarComponent</strong></td><td>Top navigation menus</td></tr>
+        <tr><td><strong>SideBarComponent</strong></td><td>Side navigation, collapsible trees</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Writing a new component</h3>
+      <pre><span class="kw">import</span> { <span class="typ">BaseComponent</span> } <span class="kw">from</span> <span class="str">'../base/BaseComponent'</span>;
+
+<span class="kw">export class</span> <span class="typ">DatePickerComponent</span> <span class="kw">extends</span> <span class="typ">BaseComponent</span> {
+
+  <span class="fn">async</span> <span class="fn">selectDate</span>(date: <span class="typ">string</span>): <span class="typ">Promise</span>&lt;<span class="typ">void</span>&gt; {
+    <span class="kw">await</span> <span class="kw">this</span>.<span class="fn">interact</span>(<span class="str">`select date ${date}`</span>, <span class="kw">async</span> () => {
+      <span class="kw">await</span> <span class="kw">this</span>.<span class="fn">el</span>().<span class="fn">click</span>();
+      <span class="kw">await</span> <span class="kw">this</span>.page.<span class="fn">locator</span>(
+        <span class="str">`[data-date="${date}"]`</span>
+      ).<span class="fn">click</span>();
+    });
+  }
+
+  <span class="fn">async</span> <span class="fn">assertSelectedDate</span>(expected: <span class="typ">string</span>): <span class="typ">Promise</span>&lt;<span class="typ">void</span>&gt; {
+    <span class="kw">const</span> val = <span class="kw">await</span> <span class="kw">this</span>.<span class="fn">getAttribute</span>(<span class="str">'value'</span>);
+    <span class="fn">expect</span>(val).<span class="fn">toBe</span>(expected);
+  }
+}</pre>
+      <h3 style="margin-top:12px">LocatorStrategy</h3>
+      <pre>{ automationId: <span class="str">'my-button'</span> }   <span class="cmt">// data-automation-id</span>
+{ testId:       <span class="str">'submit-btn'</span> }    <span class="cmt">// data-testid</span>
+{ css:          <span class="str">'button.primary'</span> } <span class="cmt">// CSS selector</span>
+{ xpath:        <span class="str">'//button[1]'</span> }   <span class="cmt">// XPath</span></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 8 -->
+<div class="slide">
+  <div class="slide-tag">Test Data</div>
+  <h2>Test Data Management</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>1. Inline Gauge parameters (small sets)</h3>
+      <pre><span class="str">## Multiple user logins</span>
+<span class="str">
+* Login as "&lt;username&gt;" password "&lt;password&gt;"</span>
+<span class="str">* Verify dashboard loads</span>
+<span class="str">
+</span>| username       | password     |
+|----------------|--------------|
+| standard_user  | secret_sauce |
+| problem_user   | secret_sauce |</pre>
+      <h3 style="margin-top:16px">2. CSV files (large datasets)</h3>
+      <pre><span class="cmt">// tests/data/saucedemo/customers.csv</span>
+first,last,zip
+Jane,Doe,94107
+John,Smith,10001</pre>
+      <pre><span class="cmt">// load in step implementation</span>
+<span class="kw">const</span> rows = <span class="fn">parse</span>(
+  fs.<span class="fn">readFileSync</span>(<span class="str">'tests/data/saucedemo/customers.csv'</span>),
+  { columns: <span class="kw">true</span> }
+);</pre>
+    </div>
+    <div>
+      <h3>3. JSON fixtures (API / structured data)</h3>
+      <pre><span class="cmt">// tests/data/orangehrm/users.json</span>
+{
+  <span class="prop">"admin"</span>:   { <span class="prop">"username"</span>: <span class="str">"Admin"</span>, <span class="prop">"password"</span>: <span class="str">"admin123"</span> },
+  <span class="prop">"invalid"</span>: { <span class="prop">"username"</span>: <span class="str">"hack"</span>,  <span class="prop">"password"</span>: <span class="str">"nope"</span> }
+}</pre>
+      <h3 style="margin-top:16px">4. Environment credentials</h3>
+      <pre><span class="cmt"># env/saucedemo/default.properties</span>
+<span class="prop">USERNAME</span> = standard_user
+<span class="prop">PASSWORD</span> = secret_sauce
+<span class="prop">LOCKED_USER</span> = locked_out_user</pre>
+      <div class="card accent-r" style="margin-top:16px">
+        <h3>⚠️ Rules for test data</h3>
+        <ul class="check-list cross-list" style="font-size:13px">
+          <li>Never hardcode credentials in .ts files</li>
+          <li>Never commit real production data or PII</li>
+          <li>Never store secrets in CSV or JSON checked into Git</li>
+          <li>Never share accounts that also exist in production</li>
+        </ul>
+      </div>
+      <div class="card accent-g" style="margin-top:12px">
+        <h3>✅ Best practices</h3>
+        <ul class="check-list" style="font-size:13px">
+          <li>Prefer Gauge tables for data-driven scenarios</li>
+          <li>Use CSV for &gt;5 rows</li>
+          <li>Use JSON for nested / structured data</li>
+          <li>Credentials always via .properties files</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 9 -->
+<div class="slide">
+  <div class="slide-tag">Setup</div>
+  <h2>Local Setup vs TestRunner Setup</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <div class="card accent-g" style="margin-bottom:16px">
+        <h3>💻 Local Setup (DB &amp; Grafana NOT required)</h3>
+        <pre><span class="cmt"># One-command setup</span>
+./setup.sh <span class="str">local</span>          <span class="cmt"># macOS/Linux</span>
+setup.bat <span class="str">local</span>            <span class="cmt"># Windows</span>
+
+<span class="cmt"># What gets installed:</span>
+<span class="cmt"># ✓ npm dependencies</span>
+<span class="cmt"># ✓ Playwright + Chromium browser</span>
+<span class="cmt"># ✓ Gauge CLI + plugins</span>
+<span class="cmt"># ✗ PostgreSQL  (not needed)</span>
+<span class="cmt"># ✗ Grafana     (not needed)</span></pre>
+        <p style="font-size:13px;margin-top:8px">The <code>DB_ENABLED=false</code> flag in all local env files silently skips DB writes. Tests run perfectly without any database.</p>
+      </div>
+      <div class="card accent-b">
+        <h3>✅ Local run output</h3>
+        <ul class="check-list" style="font-size:13px">
+          <li>Browser opens visually (headless=false)</li>
+          <li>Gauge HTML report: <code>reports/html/index.html</code></li>
+          <li>Allure results: run <code>npm run allure:open</code></li>
+          <li>Screenshots on failure: <code>dist/screenshots/</code></li>
+          <li>Logs: <code>dist/logs/framework.log</code></li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="card accent-y" style="margin-bottom:16px">
+        <h3>🖥️ TestRunner Setup (Full Stack)</h3>
+        <pre><span class="cmt"># One-command setup</span>
+./setup.sh <span class="str">testrunner</span>      <span class="cmt"># Linux server</span>
+setup.bat <span class="str">testrunner</span>        <span class="cmt"># Windows server</span>
+
+<span class="cmt"># What gets installed:</span>
+<span class="cmt"># ✓ npm + Playwright + Gauge</span>
+<span class="cmt"># ✓ PostgreSQL 15</span>
+<span class="cmt"># ✓ playgauge DB + schema</span>
+<span class="cmt"># ✓ Allure CLI</span>
+<span class="cmt"># ✓ Grafana</span></pre>
+        <p style="font-size:13px;margin-top:8px">Sets <code>DB_ENABLED=true</code> and <code>GRAFANA_ENABLED=true</code> in staging/prod envs automatically.</p>
+      </div>
+      <div class="card accent-r">
+        <h3>⚙️ Required CI Secrets</h3>
+        <table style="font-size:12px">
+          <tr><td><code>ANTHROPIC_API_KEY</code></td><td>For AI analysis</td></tr>
+          <tr><td><code>POSTGRES_USER</code></td><td>DB credentials</td></tr>
+          <tr><td><code>POSTGRES_PASSWORD</code></td><td>DB credentials</td></tr>
+          <tr><td><code>GRAFANA_URL</code></td><td>Dashboard URL</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 10 -->
+<div class="slide">
+  <div class="slide-tag">Reports</div>
+  <h2>Local Reports &amp; Sharing with the Team</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Opening local reports</h3>
+      <pre><span class="cmt"># Gauge native HTML report</span>
+open reports/html/index.html      <span class="cmt"># macOS</span>
+start reports/html/index.html     <span class="cmt"># Windows</span>
+
+<span class="cmt"># Allure report (recommended)</span>
+npm run allure:generate
+npm run allure:open               <span class="cmt"># localhost:5050</span></pre>
+      <h3 style="margin-top:16px">Sharing reports with team</h3>
+      <table>
+        <tr><th>Scenario</th><th>Method</th></tr>
+        <tr><td>Latest CI run</td><td>Share GitHub Pages URL</td></tr>
+        <tr><td>Local run → team</td><td>Zip <code>allure-report/</code> and share</td></tr>
+        <tr><td>Live demo</td><td><code>npm run allure:open</code> + ngrok tunnel</td></tr>
+        <tr><td>Long-term trends</td><td>Grafana dashboard URL (CI)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>CI/CD report flow</h3>
+      <div class="flow" style="flex-direction:column; align-items:flex-start; gap:8px">
+        <div class="flow-box" style="width:100%">1. GitHub Actions runs tests</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:13px">↓ generates allure-results/ JSON files</div>
+        <div class="flow-box blue" style="width:100%">2. AI Analyzer processes failures</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:13px">↓ adds ai-analysis JSON to allure-results/</div>
+        <div class="flow-box yellow" style="width:100%">3. allure generate creates HTML report</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:13px">↓ includes history from previous runs</div>
+        <div class="flow-box green" style="width:100%">4. Published to GitHub Pages</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:13px">↓ always at same URL, always latest</div>
+        <div class="flow-box" style="width:100%">5. Team opens URL — done</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 11 -->
+<div class="slide">
+  <div class="slide-tag">Allure Report</div>
+  <h2>Interpreting the Allure Report</h2>
+  <div class="grid-2" style="margin-top:4px">
+    <div>
+      <div class="allure-pill">
+        <div class="icon">📊</div>
+        <div><h4>Overview / Summary</h4><p>Total pass/fail/skip counts, duration, environment info. The first page you share with management.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🏷️</div>
+        <div><h4>Categories</h4><p>Failures grouped by type (product defects, test defects, broken tests). Map directly to AI analysis categories.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🔥</div>
+        <div><h4>Suites</h4><p>Tests organised by spec file → scenario. Drill into any failed scenario to see its steps, screenshots, and observability data.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">📈</div>
+        <div><h4>Trends (Retries + Flakiness)</h4><p>Shows which tests consistently pass, fail, or are flaky over the last N runs. Only meaningful after 3+ CI runs.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🗂️</div>
+        <div><h4>Behaviours (BDD view)</h4><p>Tests grouped by Feature → Story → Scenario — the BDD hierarchy from your Gauge spec tags.</p></div>
+      </div>
+    </div>
+    <div>
+      <div class="allure-pill">
+        <div class="icon">⏱️</div>
+        <div><h4>Timeline</h4><p>Visual swimlane showing when each test ran and how long it took. Useful for parallelisation planning.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🔭</div>
+        <div><h4>Observability Attachments (custom)</h4><p>Every scenario has: severity score, console error list, network failure list, slow API calls, API dependency edges. Attached automatically by ObservabilityCollector.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">📸</div>
+        <div><h4>Screenshots</h4><p>Auto-captured on failure. Attached to the Allure scenario. Scroll to the bottom of a failed test to see the browser state at point of failure.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🤖</div>
+        <div><h4>AI Analysis JSON (CI only)</h4><p>The AI Analyser output is attached to each failed scenario: category, confidence, root cause, suggested fix. Also generates a standalone HTML summary report.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 12 -->
+<div class="slide">
+  <div class="slide-tag">Observability</div>
+  <h2>Auto-Observability — What It Captures</h2>
+  <p>Zero configuration required. ObservabilityCollector attaches to Playwright page events on every scenario via <code>hooks.ts</code>.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Captured automatically</h3>
+      <table>
+        <tr><th>Signal</th><th>Playwright Event</th><th>What it tells you</th></tr>
+        <tr><td>Console errors</td><td>page.on('console')</td><td>JS errors in the browser</td></tr>
+        <tr><td>Console warnings</td><td>page.on('console')</td><td>Deprecations, unexpected states</td></tr>
+        <tr><td>Uncaught exceptions</td><td>page.on('pageerror')</td><td>Crashes in the app's JavaScript</td></tr>
+        <tr><td>Network failures</td><td>page.on('requestfailed')</td><td>Failed XHR/fetch calls</td></tr>
+        <tr><td>Slow API calls</td><td>page.on('response')</td><td>Calls &gt; SLOW_API_THRESHOLD_MS</td></tr>
+        <tr><td>API dependency edges</td><td>request+response pair</td><td>Which endpoints the test triggered</td></tr>
+      </table>
+      <h3 style="margin-top:16px">Severity scoring</h3>
+      <pre>score = (5 × uncaughtExceptions)
+      + (4 × networkFailures)
+      + (3 × consoleErrors)
+      + (2 × slowApiCalls)
+      + (1 × consoleWarnings)
+
+<span class="cmt">0      → NONE</span>
+<span class="cmt">1-4    → LOW</span>
+<span class="cmt">5-9    → MEDIUM</span>
+<span class="cmt">10+    → HIGH</span></pre>
+    </div>
+    <div>
+      <h3>FailureFeaturesV1 schema (stored in DB)</h3>
+      <pre><span class="kw">interface</span> <span class="typ">FailureFeaturesV1</span> {
+  <span class="cmt">// Identity</span>
+  <span class="prop">runId</span>:          <span class="typ">string</span>;
+  <span class="prop">spec</span>:           <span class="typ">string</span>;
+  <span class="prop">testName</span>:       <span class="typ">string</span>;
+  <span class="prop">module</span>:         <span class="typ">string</span>;
+  <span class="prop">environment</span>:    <span class="typ">string</span>;
+  <span class="cmt">// Status</span>
+  <span class="prop">testStatus</span>:     <span class="str">'passed'</span> | <span class="str">'failed'</span>;
+  <span class="prop">failureMessage</span>: <span class="typ">string</span>;
+  <span class="prop">failureSignature</span>:<span class="typ">string</span>; <span class="cmt">// stable hash</span>
+  <span class="cmt">// Observability counts</span>
+  <span class="prop">consoleErrors</span>:  <span class="typ">number</span>;
+  <span class="prop">networkFailures</span>:<span class="typ">number</span>;
+  <span class="prop">slowApiCalls</span>:   <span class="typ">number</span>;
+  <span class="prop">uncaughtExceptions</span>: <span class="typ">number</span>;
+  <span class="prop">severity</span>:       <span class="str">'NONE'|'LOW'|'MEDIUM'|'HIGH'</span>;
+  <span class="prop">severityScore</span>:  <span class="typ">number</span>;
+  <span class="cmt">// Hints for AI categorisation</span>
+  <span class="prop">ruleCategoryHint</span>: <span class="str">'flaky'|'environment'|...</span>;
+  <span class="prop">apiEdges</span>:       <span class="typ">ApiDependencyEdge</span>[];
+  <span class="cmt">// Git context</span>
+  <span class="prop">gitBranch</span>:      <span class="typ">string</span>;
+  <span class="prop">gitSha</span>:         <span class="typ">string</span>;
+}</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 13 -->
+<div class="slide">
+  <div class="slide-tag">AI Analysis</div>
+  <h2>AI Failure Analysis — End-to-End Flow</h2>
+  <div style="margin:12px 0 8px">
+    <div class="flow" style="flex-wrap:wrap; gap:4px">
+      <div class="flow-box">1. Test fails</div><div class="flow-arrow">→</div>
+      <div class="flow-box blue">2. Gauge <code>ExecutionContext</code> captures error + stack trace</div><div class="flow-arrow">→</div>
+      <div class="flow-box yellow">3. ObservabilityCollector builds FailureFeaturesV1 + screenshot</div><div class="flow-arrow">→</div>
+      <div class="flow-box" style="border-color:var(--accent2)">4. Allure result JSON written</div><div class="flow-arrow">→</div>
+      <div class="flow-box green">5. AI Analyzer sends 7-section prompt to AI provider</div><div class="flow-arrow">→</div>
+      <div class="flow-box red">6. AI returns JSON classification</div><div class="flow-arrow">→</div>
+      <div class="flow-box">7. Result saved to DB + Allure report</div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:10px">
+    <div>
+      <h3>7-section AI prompt structure</h3>
+      <table style="font-size:12px">
+        <tr><th>#</th><th>Section</th><th>Signal</th></tr>
+        <tr><td>1</td><td>Test Identity</td><td>Spec, scenario, module</td></tr>
+        <tr><td style="color:var(--accent2);font-weight:700">2</td><td><strong>Error Details ★</strong></td><td>Real Playwright error msg + first 10 lines of stack trace (from <code>ExecutionContext</code>)</td></tr>
+        <tr><td>3</td><td>Allure Trace</td><td>Step-by-step pass/fail with durations</td></tr>
+        <tr><td>4</td><td>Screenshot</td><td>Vision image for GPT-4o / Claude 3 / Gemini 1.5+</td></tr>
+        <tr><td>5</td><td>Telemetry</td><td>Console errors, network failures, slow APIs</td></tr>
+        <tr><td>6</td><td>Historical</td><td>30-day failure rate, flaky detection</td></tr>
+        <tr><td>7</td><td>Classification</td><td>6-category rubric + JSON response format</td></tr>
+      </table>
+      <h3 style="margin-top:12px">Failure categories</h3>
+      <div>
+        <span class="cat code">⌨️ Automation Script Issue</span>
+        <span class="cat flaky">⚡ Flaky Issue</span>
+        <span class="cat env">🌐 Network / Infrastructure Issue</span>
+        <span class="cat bug">🐛 Product Issue</span>
+        <span class="cat data">📦 Test Data Issue</span>
+        <span class="cat" style="background:#444">❓ Unclassified</span>
+      </div>
+      <h3 style="margin-top:12px">Supported AI providers</h3>
+      <table style="font-size:12px">
+        <tr><th>Provider</th><th>Vision</th><th>Set <code>AI_PROVIDER=</code></th></tr>
+        <tr><td>Anthropic Claude 3+</td><td>✓</td><td><code>anthropic</code></td></tr>
+        <tr><td>OpenAI GPT-4o</td><td>✓</td><td><code>openai</code></td></tr>
+        <tr><td>Google Gemini 1.5+</td><td>✓</td><td><code>gemini</code></td></tr>
+        <tr><td>Groq / Ollama / Together</td><td>model-dependent</td><td><code>openai-compatible</code></td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>AI output per failure</h3>
+      <pre style="font-size:11px">{
+  <span class="prop">"category"</span>:    <span class="str">"Product Issue"</span>,
+  <span class="prop">"confidence"</span>:  <span class="num">0.91</span>,
+  <span class="prop">"reasoning"</span>:   <span class="str">"Stack trace shows TimeoutError
+    on locator('.search-results') after
+    a 500 response from /api/v2/users.
+    Two console errors confirm a server-
+    side failure, not a selector bug."</span>,
+  <span class="prop">"suggestions"</span>: [
+    <span class="str">"Check /api/v2/users server logs at
+      this timestamp"</span>,
+    <span class="str">"Verify search payload schema
+      matches API contract"</span>,
+    <span class="str">"Add API contract test for
+      /api/v2/users search endpoint"</span>
+  ]
+}</pre>
+      <div class="card accent-g" style="margin-top:10px">
+        <h3>Why Section 2 (error + stack) matters</h3>
+        <p>Previously <code>failureMessage</code> was always empty — the error was silently discarded. Now <code>@AfterScenario</code> reads <code>executionContext.currentScenario.failedStep.errorMessage</code> and <code>.stackTrace</code> directly from Gauge, so the AI sees the exact Playwright exception that caused the failure. Triage time drops from 30 min to 2 min.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 14 -->
+<div class="slide">
+  <div class="slide-tag">Database</div>
+  <h2>PostgreSQL — What Gets Stored and Why</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>5 tables in the schema</h3>
+      <table style="font-size:13px">
+        <tr><th>Table</th><th>Stores</th></tr>
+        <tr><td><strong>test_runs</strong></td><td>One row per scenario: all FailureFeaturesV1 fields, screenshot_base64, AI analysis result, git metadata</td></tr>
+        <tr><td><strong>api_calls</strong></td><td>Every HTTP call made during a test: URL, method, status, duration, is_slow flag</td></tr>
+        <tr><td><strong>console_signals</strong></td><td>Every browser console message: type, text, source, timestamp</td></tr>
+        <tr><td><strong>failure_trends</strong></td><td>Aggregated failure counts per test per day — powers flaky detection</td></tr>
+        <tr><td><strong>ai_analysis_runs</strong></td><td>Each AI analysis batch: model, token usage, categories produced, run timestamp</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>How data enables flaky detection</h3>
+      <pre><span class="cmt">-- Tests that failed AND passed in last 7 days</span>
+<span class="kw">SELECT</span> test_name,
+       <span class="fn">SUM</span>(pass_count) <span class="kw">AS</span> passes,
+       <span class="fn">SUM</span>(fail_count) <span class="kw">AS</span> failures
+<span class="kw">FROM</span> failure_trends
+<span class="kw">WHERE</span> recorded_at &gt; <span class="fn">NOW</span>() - <span class="str">'7 days'</span>::interval
+  <span class="kw">AND</span> pass_count &gt; <span class="num">0</span>
+  <span class="kw">AND</span> fail_count &gt; <span class="num">0</span>
+<span class="kw">GROUP BY</span> test_name;</pre>
+      <div class="card accent-b" style="margin-top:12px">
+        <h3>How data retrieval works</h3>
+        <p>The AI Analyzer calls <code>TestRunRepository.getFailedRunsForBatch(runId)</code> to fetch all failed tests in a CI run. It also calls <code>getHistoricalStats(testName)</code> to add historical context before building the AI prompt. This lets Claude distinguish a first-time failure from a recurring flaky test.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 15 -->
+<div class="slide">
+  <div class="slide-tag">Grafana</div>
+  <h2>Grafana Dashboards</h2>
+  <p>Grafana reads from PostgreSQL via the built-in PostgreSQL datasource. Available only in CI environments where <code>GRAFANA_ENABLED=true</code>.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Setup (handled by setup.sh testrunner)</h3>
+      <pre><span class="cmt"># Installed automatically on testrunner</span>
+<span class="cmt"># Manual access after setup:</span>
+http://&lt;server-ip&gt;:3001
+<span class="cmt"># Default login: admin / playgauge_admin</span>
+<span class="cmt"># Change on first login!</span></pre>
+      <h3 style="margin-top:16px">Available dashboards</h3>
+      <table style="font-size:13px">
+        <tr><th>Dashboard</th><th>Shows</th></tr>
+        <tr><td>Test Run Overview</td><td>Pass/fail/flaky trend over time</td></tr>
+        <tr><td>Failure Categories</td><td>AI classification breakdown (pie)</td></tr>
+        <tr><td>Slow API Tracker</td><td>API calls exceeding threshold</td></tr>
+        <tr><td>Console Error Frequency</td><td>Top recurring JS errors</td></tr>
+        <tr><td>Observability Severity</td><td>Test health heatmap over time</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>PostgreSQL datasource query (example)</h3>
+      <pre><span class="cmt">-- Pass rate over last 30 days</span>
+<span class="kw">SELECT</span>
+  date_trunc(<span class="str">'day'</span>, created_at) <span class="kw">AS</span> time,
+  <span class="fn">ROUND</span>(
+    <span class="num">100.0</span> * <span class="fn">COUNT</span>(*) <span class="typ">FILTER</span>
+      (<span class="kw">WHERE</span> test_status = <span class="str">'passed'</span>)
+    / <span class="fn">COUNT</span>(*), <span class="num">1</span>
+  ) <span class="kw">AS</span> pass_rate
+<span class="kw">FROM</span> test_runs
+<span class="kw">WHERE</span> created_at &gt; <span class="fn">NOW</span>() - <span class="str">'30 days'</span>::interval
+<span class="kw">GROUP BY</span> <span class="num">1</span>
+<span class="kw">ORDER BY</span> <span class="num">1</span>;</pre>
+      <div class="card accent-y" style="margin-top:12px">
+        <h3>💡 Who uses Grafana?</h3>
+        <p>Grafana is for <strong>team leads and managers</strong> who want a live view of test health without opening Allure. Share the dashboard URL with the team — no login required if anonymous access is enabled on the datasource.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 16 -->
+<div class="slide">
+  <div class="slide-tag">Dos and Don'ts</div>
+  <h2>Dos and Don'ts</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3 style="color:var(--green)">✅ DO</h3>
+      <ul class="check-list">
+        <li>Write step text in plain English a PM can read</li>
+        <li>Keep pages as thin orchestrators — no raw locators in page files</li>
+        <li>Put all UI interactions inside a Component extending BaseComponent</li>
+        <li>Prefer <code>{ automationId }</code> when the app has <code>data-automation-id</code> attributes</li>
+        <li>Tag every spec file AND every scenario</li>
+        <li>Put credentials only in env .properties files</li>
+        <li>Run smoke tests before raising a PR</li>
+        <li>Keep <code>DB_ENABLED=false</code> on local environments</li>
+        <li>Read ObservabilityCollector telemetry when diagnosing flaky tests</li>
+        <li>Add a new component type when a new UI pattern appears</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--red)">❌ DON'T</h3>
+      <ul class="check-list cross-list">
+        <li>Don't put <code>page.locator()</code> calls in step implementations</li>
+        <li>Don't create page methods that duplicate component behaviour</li>
+        <li>Don't commit .env files or credentials to Git</li>
+        <li>Don't skip tagging — untagged scenarios can't be targeted</li>
+        <li>Don't use <code>page.waitForTimeout(5000)</code> — use component assertions</li>
+        <li>Don't install PostgreSQL or Grafana locally</li>
+        <li>Don't run <code>DB_ENABLED=true</code> without running db:migrate first</li>
+        <li>Don't hardcode test data inside step implementations</li>
+        <li>Don't modify ObservabilityCollector without understanding the schema</li>
+        <li>Don't run full regression locally for a quick sanity check — use --tags smoke</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 17 -->
+<div class="slide">
+  <div class="slide-tag">Quick Reference</div>
+  <h2>Quick Reference Card</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Commands</h3>
+      <pre><span class="cmt"># Run tests</span>
+npm run gauge:saucedemo
+npm run gauge:orangehrm
+npm run gauge:smoke
+npm run gauge:regression
+gauge run <span class="str">--tags mymodule</span> specs/
+
+<span class="cmt"># Standalone Playwright</span>
+npx playwright test
+npx playwright test <span class="str">--ui</span>
+
+<span class="cmt"># Reports</span>
+npm run allure:generate
+npm run allure:open           <span class="cmt"># localhost:5050</span>
+
+<span class="cmt"># Typecheck + Lint</span>
+npm run typecheck
+npm run lint
+
+<span class="cmt"># CI-only commands</span>
+npm run db:migrate
+npm run ai:analyze</pre>
+    </div>
+    <div>
+      <h3>Adding a new module — checklist</h3>
+      <ul class="check-list">
+        <li>Create <code>specs/&lt;module&gt;/feature.md</code> with Tags</li>
+        <li>Create page objects in <code>tests/pages/&lt;module&gt;/</code></li>
+        <li>Use existing components (form/, data/, feedback/, navigation/)</li>
+        <li>Create step file in <code>tests/step-implementations/&lt;module&gt;/</code></li>
+        <li>Add env config to <code>env/&lt;module&gt;/default.properties</code> if new app</li>
+        <li>Run <code>gauge run --tags &lt;module&gt; specs/&lt;module&gt;/</code> to verify</li>
+        <li>Run full smoke: <code>npm run gauge:smoke</code></li>
+        <li>Add to CI yml if needed</li>
+      </ul>
+      <div class="card accent-l" style="margin-top:16px">
+        <h3>📖 Further reading</h3>
+        <p><code>CLAUDE_CODE_SETUP.md</code> — How to use Claude Code CLI with this project for AI-assisted test development</p>
+        <p style="margin-top:4px"><code>README.md</code> — Full setup, configuration and troubleshooting reference</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- ── Nav bar ── -->
+<div id="nav">
+  <button id="btn-prev" title="Previous (←)">&#8592;</button>
+  <span id="slide-counter">1 / 17</span>
+  <button id="btn-next" title="Next (→)">&#8594;</button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total = slides.length;
+  let current = 0;
+
+  // Build thumb nav
+  const thumbsEl = document.getElementById('thumbs');
+  const thumbs = slides.map((_, i) => {
+    const t = document.createElement('div');
+    t.className = 'thumb' + (i === 0 ? ' active' : '');
+    t.title = `Slide ${i+1}`;
+    t.addEventListener('click', () => goTo(i));
+    thumbsEl.appendChild(t);
+    return t;
+  });
+
+  function goTo(n) {
+    slides[current].classList.remove('active');
+    thumbs[current].classList.remove('active');
+    current = Math.max(0, Math.min(total - 1, n));
+    slides[current].classList.add('active');
+    thumbs[current].classList.add('active');
+    document.getElementById('slide-counter').textContent = `${current + 1} / ${total}`;
+    document.getElementById('progress').style.width = `${((current + 1) / total) * 100}%`;
+    slides[current].scrollTop = 0;
+  }
+
+  document.getElementById('btn-prev').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('btn-next').addEventListener('click', () => goTo(current + 1));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1);
+  });
+
+  goTo(0);
+</script>
+</body>
+</html>

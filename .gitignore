@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+allure-results/
+allure-report/
+*.log
+.DS_Store
+dist/gauge-reports/
+dist/test-results/
+dist/observability/
+dist/logs/
+*.png
+*.mp4
+*.zip
