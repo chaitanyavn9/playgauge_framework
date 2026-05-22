@@ -38,6 +38,10 @@ export interface TestMeta {
   failureMessage: string;
   /** Full stack trace from the failing step (from Gauge ExecutionContext) */
   failureStackTrace: string;
+  /** All Gauge tags from spec + scenario (e.g. ['critical', 'smoke', 'regression']) */
+  tags?: string[];
+  /** Priority label mapped from tags: critical | high | medium | low | normal */
+  severity?: string;
   retryAttempt: number;
   maxRetries: number;
   screenshotBase64?: string;

@@ -16,6 +16,7 @@ import {
   AllureTest,
   ContentType,
   LabelName,
+  Severity,
   Stage,
   Status,
 } from 'allure-js-commons';
@@ -29,7 +30,7 @@ export class AllureObservabilityReporter {
     private readonly env: FrameworkEnv,
   ) {}
 
-  async attachAll(features: FailureFeaturesV1): Promise<void> {
+  async attachAll(features: FailureFeaturesV1, tags: string[] = [], severity = 'normal'): Promise<void> {
     if (!this.env.observabilityAttachAllure) return;
 
     // Create a fresh AllureRuntime for this test result
@@ -40,9 +41,15 @@ export class AllureObservabilityReporter {
     const test  = group.startTest(features.test);
 
     // ─── Labels ───────────────────────────────────────────────────────────────
-    test.addLabel(LabelName.SUITE,   features.module);
-    test.addLabel(LabelName.FEATURE, features.spec);
+    test.addLabel(LabelName.SUITE,    features.module);
+    test.addLabel(LabelName.FEATURE,  features.spec);
+    test.addLabel(LabelName.SEVERITY, mapSeverity(severity));
     test.fullName = `${features.spec} > ${features.test}`;
+
+    // Add Gauge tags as Allure TAG labels (shows in filter sidebar)
+    for (const tag of tags) {
+      test.addLabel(LabelName.TAG, tag);
+    }
 
     // ─── Status ───────────────────────────────────────────────────────────────
     test.status = features.testStatus === 'failed' ? Status.FAILED : Status.PASSED;
@@ -56,7 +63,7 @@ export class AllureObservabilityReporter {
     }
 
     // ─── Parameters ───────────────────────────────────────────────────────────
-    this.addParameters(test, features);
+    this.addParameters(test, features, severity);
 
     // ─── Attachments ──────────────────────────────────────────────────────────
     this.addAttachments(rt, test, features);
@@ -67,8 +74,9 @@ export class AllureObservabilityReporter {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  private addParameters(test: AllureTest, f: FailureFeaturesV1): void {
+  private addParameters(test: AllureTest, f: FailureFeaturesV1, severity = 'normal'): void {
     const params: [string, string][] = [
+      ['test.priority',          severity],
       ['obs.severity',           f.observabilitySeverity],
       ['obs.score',              String(f.observabilityScore)],
       ['obs.networkFailures',    String(f.networkFailureCount)],
@@ -193,6 +201,27 @@ ${htmlTable(['Timestamp', 'Method', 'Status', 'Duration', 'Type', 'URL'], networ
 }
 
 // ─── Module-level helpers ─────────────────────────────────────────────────────
+
+/**
+ * Maps our priority tags (critical / high / medium / low / normal) to
+ * Allure's built-in Severity levels so the coloured severity badge shows.
+ *
+ *   critical → blocker  (🔴)
+ *   high     → critical (🟠)
+ *   medium   → normal   (🟡)
+ *   low      → minor    (🟢)
+ *   normal   → normal
+ */
+function mapSeverity(severity: string): string {
+  const map: Record<string, string> = {
+    critical: Severity.BLOCKER,
+    high:     Severity.CRITICAL,
+    medium:   Severity.NORMAL,
+    low:      Severity.MINOR,
+    normal:   Severity.NORMAL,
+  };
+  return map[severity] ?? Severity.NORMAL;
+}
 
 function esc(s: string): string {
   return String(s)

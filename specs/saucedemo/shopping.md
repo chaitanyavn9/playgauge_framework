@@ -5,7 +5,7 @@ End-to-end shopping cart and checkout scenarios.
 Tags: saucedemo, regression, shopping
 
 ## Products page loads with all items
-Tags: smoke
+Tags: smoke, high
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
@@ -13,7 +13,7 @@ Tags: smoke
 * Verify exactly "6" products are displayed
 
 ## Add single item to cart
-Tags: smoke, cart
+Tags: smoke, cart, high
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
@@ -21,7 +21,7 @@ Tags: smoke, cart
 * Verify cart badge shows "1" item
 
 ## Add multiple items to cart
-Tags: regression, cart
+Tags: regression, cart, medium
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
@@ -30,7 +30,7 @@ Tags: regression, cart
 * Verify cart badge shows "2" items
 
 ## Full checkout flow end-to-end
-Tags: smoke, e2e
+Tags: smoke, e2e, critical
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
@@ -44,7 +44,7 @@ Tags: smoke, e2e
 * Verify order completed successfully
 
 ## Checkout fails without filling details
-Tags: regression
+Tags: regression, medium
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
@@ -55,7 +55,7 @@ Tags: regression
 * Verify checkout validation error "First Name is required"
 
 ## Sort products by price low to high
-Tags: regression
+Tags: regression, low
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
@@ -63,7 +63,7 @@ Tags: regression
 * Verify landing on the products page
 
 ## Remove item from cart
-Tags: regression, cart
+Tags: regression, cart, medium
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"

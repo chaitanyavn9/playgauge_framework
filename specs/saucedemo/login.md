@@ -5,14 +5,14 @@ Login and authentication scenarios for SauceDemo.
 Tags: saucedemo, regression, login
 
 ## Successful login with standard user
-Tags: smoke
+Tags: smoke, critical
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
 * Verify landing on the products page
 
 ## Login fails with wrong password
-Tags: regression
+Tags: regression, high
 
 * Open SauceDemo login page
 * Login as "standard_user" with password "wrong_password"
@@ -20,7 +20,7 @@ Tags: regression
 * Verify error contains "Username and password do not match"
 
 ## Locked out user cannot login
-Tags: regression
+Tags: regression, high
 
 * Open SauceDemo login page
 * Login as "locked_out_user" with password "secret_sauce"
@@ -28,7 +28,7 @@ Tags: regression
 * Verify error contains "Sorry, this user has been locked out"
 
 ## Login page has all required elements
-Tags: smoke
+Tags: smoke, medium
 
 * Open SauceDemo login page
 * Verify username field is present on login page

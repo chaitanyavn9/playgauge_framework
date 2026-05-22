@@ -9,6 +9,7 @@ import * as path from 'path';
 import { EnvLoader } from '../utils/EnvLoader';
 import { ObservabilityCollector, TestMeta } from '../observability/ObservabilityCollector';
 import { AllureObservabilityReporter } from '../observability/AllureObservabilityReporter';
+import { AllureSetup } from '../observability/AllureSetup';
 import { TestRunRepository } from '../db/TestRunRepository';
 import { logger } from '../utils/Logger';
 import * as dotenv from 'dotenv';
@@ -32,6 +33,11 @@ export default class Hooks {
   async beforeSuite(): Promise<void> {
     logger.info(`playgauge_framework starting — env=${env.envName}, runId=${RUN_ID}`);
     browser = await chromium.launch({ headless: env.headless });
+
+    // Write Allure environment, categories, executor, and restore history (for trend)
+    if (env.observabilityAttachAllure) {
+      new AllureSetup(env).writeAll();
+    }
   }
 
   @AfterSuite()
@@ -98,6 +104,12 @@ export default class Hooks {
       const specName     = specInfo?.getName()  ?? specFile;
       const scenarioName = scenarioResult?.getName() ?? 'unknown';
 
+      // ── Tags + severity from spec and scenario ────────────────────────────────
+      const specTags  = (specInfo?.getTags()        ?? []).map(t => t.toLowerCase());
+      const scenTags  = (scenarioResult?.getTags()  ?? []).map(t => t.toLowerCase());
+      const allTags   = [...new Set([...specTags, ...scenTags])];
+      const severity  = mapTagsToSeverity(allTags);
+
       const meta: TestMeta = {
         spec:              specFile,
         test:              scenarioName,
@@ -109,6 +121,8 @@ export default class Hooks {
         retryAttempt: 0,
         maxRetries:   0,
         screenshotBase64,
+        tags:     allTags,
+        severity,
       };
 
       if (obs) {
@@ -117,7 +131,7 @@ export default class Hooks {
         // Attach to Allure (non-fatal)
         try {
           const allureReporter = new AllureObservabilityReporter(obs, env);
-          await allureReporter.attachAll(features);
+          await allureReporter.attachAll(features, allTags, severity);
         } catch (err) {
           logger.warn('Allure attachment failed (non-fatal)', { error: (err as Error).message });
         }
@@ -149,4 +163,23 @@ export default class Hooks {
       try { await context?.close(); } catch { /* ignore */ }
     }
   }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Maps Gauge tags to a priority severity label.
+ * Tag priority (highest wins): critical > high > medium > low
+ * If no priority tag is present, returns 'normal'.
+ *
+ * Usage in spec file:
+ *   ## My scenario
+ *   tags: critical
+ */
+function mapTagsToSeverity(tags: string[]): string {
+  if (tags.includes('critical')) return 'critical';
+  if (tags.includes('high'))     return 'high';
+  if (tags.includes('medium'))   return 'medium';
+  if (tags.includes('low'))      return 'low';
+  return 'normal';
 }
