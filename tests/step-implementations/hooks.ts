@@ -101,9 +101,13 @@ export class Hooks {
 
     const features = obs.buildFailureFeatures(meta);
 
-    // Attach to Allure
-    const allureReporter = new AllureObservabilityReporter(obs, env);
-    await allureReporter.attachAll(features);
+    // Attach to Allure (non-fatal — never crash the runner on reporter errors)
+    try {
+      const allureReporter = new AllureObservabilityReporter(obs, env);
+      await allureReporter.attachAll(features);
+    } catch (err) {
+      logger.warn('Allure attachment failed (non-fatal)', { error: (err as Error).message });
+    }
 
     // Persist to DB — only when DB_ENABLED=true (CI/CD testrunner)
     if (env.dbEnabled) {
