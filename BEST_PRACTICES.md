@@ -27,7 +27,7 @@ Spec files are the **single source of truth** for what is being tested. They mus
 ### Location
 
 ```
-tests/specs/<module>/
+specs/<module>/
   login.md
   dashboard.md
   admin.md
@@ -38,7 +38,8 @@ tests/specs/<module>/
 **DO**
 - Write steps in plain, business-facing English.
 - Use concrete values inline, not vague placeholders: `"Login as Admin with password admin123"` not `"Login as a user"`.
-- Tag every spec file AND every scenario. Use module-level tags (`@orangehrm`) and granularity tags (`@smoke`, `@regression`, `@login`).
+- Tag every spec file AND every scenario. Use module-level tags (`saucedemo`) and granularity tags (`smoke`, `regression`, `login`).
+- Add a **priority severity tag** (`critical`, `high`, `medium`, or `low`) to every scenario. This maps to an Allure Severity label and is used to triage which failures need immediate action.
 - Keep one scenario per logical user journey. Avoid 30-step monsters.
 - Use Gauge tables for data-driven scenarios. Keep the table inside the spec, not hidden in a JSON file.
 
@@ -51,22 +52,35 @@ tests/specs/<module>/
 ### Good example
 
 ```markdown
-# OrangeHRM Admin Login
-tags: orangehrm, smoke
+# SauceDemo Login
+Tags: saucedemo, login, regression
 
-## Login with valid credentials
-tags: login, smoke
-* Open the OrangeHRM login page
-* Login to OrangeHRM as "Admin" with password "admin123"
-* Verify the OrangeHRM dashboard is displayed
-* The welcome message should contain "Admin"
+## Successful login with standard user
+Tags: smoke, critical
+* Open SauceDemo login page
+* Login as "standard_user" with password "secret_sauce"
+* Verify the dashboard is displayed
 
-## Login with wrong password
-tags: login, regression, negative
-* Open the OrangeHRM login page
-* Login to OrangeHRM as "Admin" with password "wrongpass"
-* Verify the login error message "Invalid credentials"
+## Login fails with wrong password
+Tags: regression, high
+* Open SauceDemo login page
+* Login as "standard_user" with password "wrong_password"
+* Verify login error message is shown
+
+## Login page has all required elements
+Tags: smoke, medium
+* Open SauceDemo login page
+* Verify all login form elements are visible
 ```
+
+### Priority/severity tag → Allure mapping
+
+| Gauge tag | Allure Severity | When to use |
+|---|---|---|
+| `critical` | BLOCKER | Blocks the release — login, checkout, core flow |
+| `high` | CRITICAL | Major functional impact — key negative paths |
+| `medium` | NORMAL | Moderate impact — form validation, sorting |
+| `low` | MINOR | Low impact — cosmetic, edge cases |
 
 ### Bad example
 
@@ -356,38 +370,105 @@ export class LoginFormComponent {
 
 ## 5. Hooks (`hooks.ts`)
 
-The `@BeforeScenario` / `@AfterScenario` hooks are the framework's backbone. Treat them carefully.
+The `@BeforeSuite` / `@BeforeScenario` / `@AfterScenario` hooks are the framework's backbone. Treat them carefully.
 
 ### Rules
 
 **DO**
-- Always pass `executionContext: ExecutionContext` to `@AfterScenario`. This is how the real Playwright error message and stack trace are captured.
-- Read `executionContext.currentScenario.isFailed` to determine pass/fail — do not rely on a DataStore key.
+- Call `new AllureSetup(env).writeAll()` in `@BeforeSuite` when `env.observabilityAttachAllure` is true. This writes the Environment, Categories, and Executor metadata that populates Allure panels before any test runs.
+- Always pass `executionContext: ExecutionContext` to `@AfterScenario`. This is the only reliable source of the real Playwright error message and stack trace.
+- Use **getter methods** from the gauge-ts API — not property access. `getCurrentSpec()`, `getCurrentScenario()`, `getIsFailing()`, `getName()`, `getFileName()`, `getTags()`, `getErrorMessage()`, `getStackTrace()`.
 - Capture screenshots only on failure (`isFailed === true`), not on every run.
 - Guard DB writes behind `env.dbEnabled` — local developers must not need a running Postgres instance.
 - Call `obs.reset()` and `await context.close()` unconditionally at the end of `@AfterScenario` — even if an error occurred earlier.
 - Use `logger.error()` with `try/catch` around DB and external calls so a failing persist doesn't abort the test run.
 
 **DON'T**
+- Don't access gauge-ts scenario state as plain properties (e.g. `executionContext.currentScenario.isFailed` or `.failedStep.errorMessage`) — these are getter methods in gauge-ts v0.3.x, not public properties.
 - Don't read `failureMessage` from `DataStore` — it was never populated. Always use `ExecutionContext`.
 - Don't open a new browser context inside hooks beyond what `@BeforeScenario` does.
-- Don't import and use `DataStore` for pass/fail state. `ExecutionContext` is authoritative.
 - Don't call `process.exit()` inside hooks — let Gauge handle lifecycle.
 
-### AfterScenario pattern
+### BeforeSuite pattern — Allure metadata
 
 ```typescript
-@AfterScenario()
-async function afterScenario(executionContext: ExecutionContext): Promise<void> {
-  const scenarioResult  = executionContext.currentScenario;
-  const isFailed        = scenarioResult.isFailed;
-  const failedStep      = isFailed ? scenarioResult.failedStep : null;
-  const failureMessage  = failedStep?.errorMessage   ?? '';
-  const failureStackTrace = failedStep?.stackTrace   ?? '';
+import { BeforeSuite } from 'gauge-ts';
+import { EnvLoader }   from '../utils/EnvLoader';
+import { AllureSetup } from '../observability/AllureSetup';
 
-  // ... screenshot, TestMeta, features, allure, DB ...
+@BeforeSuite()
+async function beforeSuite(): Promise<void> {
+  const env = EnvLoader.load();
+  // Write Allure metadata once for the entire suite:
+  //   • environment.properties → Environment panel
+  //   • categories.json        → Categories panel
+  //   • executor.json          → Executors panel
+  //   • history/               → Trend panel (restores previous run's history)
+  if (env.observabilityAttachAllure) {
+    new AllureSetup(env).writeAll();
+  }
 }
 ```
+
+### AfterScenario pattern — correct getter method usage
+
+```typescript
+import { AfterScenario, ExecutionContext } from 'gauge-ts';
+import * as path from 'path';
+
+@AfterScenario()
+async function afterScenario(executionContext: ExecutionContext): Promise<void> {
+  // ── Use getter methods (gauge-ts v0.3.x API) ──────────────────────────────
+  const specInfo     = executionContext.getCurrentSpec();
+  const scenarioResult = executionContext.getCurrentScenario();
+
+  const isFailed       = scenarioResult?.getIsFailing()  ?? false;
+  const scenarioName   = scenarioResult?.getName()        ?? 'unknown';
+  const rawSpecFile    = specInfo?.getFileName()          ?? '';
+  const specFile       = rawSpecFile
+    ? path.relative(process.cwd(), rawSpecFile)
+    : 'unknown.md';
+  const specName       = specInfo?.getName()              ?? specFile;
+
+  // ── Tags → severity mapping ───────────────────────────────────────────────
+  const specTags  = (specInfo?.getTags()     ?? []).map(t => t.toLowerCase());
+  const scenTags  = (scenarioResult?.getTags() ?? []).map(t => t.toLowerCase());
+  const allTags   = [...new Set([...specTags, ...scenTags])];
+  const severity  = mapTagsToSeverity(allTags);
+
+  // ── Error details — only available when failed ────────────────────────────
+  // failedStep is accessed via getFailedStep() in some gauge-ts versions.
+  // Guard with optional chaining; do NOT assume it is a plain property.
+  const failedStep        = isFailed ? (scenarioResult as any).getFailedStep?.() ?? null : null;
+  const failureMessage    = failedStep?.getErrorMessage?.()  ?? '';
+  const failureStackTrace = failedStep?.getStackTrace?.()    ?? '';
+
+  // ... screenshot, TestMeta, features, allure attachment, DB persist ...
+}
+
+function mapTagsToSeverity(tags: string[]): string {
+  if (tags.includes('critical')) return 'critical';
+  if (tags.includes('high'))     return 'high';
+  if (tags.includes('medium'))   return 'medium';
+  if (tags.includes('low'))      return 'low';
+  return 'normal';
+}
+```
+
+### Why getter methods, not property access?
+
+gauge-ts exposes `ExecutionContext` fields through **getter methods**, not plain public properties. Accessing `.isFailed`, `.failedStep`, `.errorMessage` directly returns `undefined` at runtime even though TypeScript may not flag a compile error (depending on the type definitions version). Always use:
+
+| What you need | Correct call |
+|---|---|
+| Did this scenario fail? | `scenarioResult?.getIsFailing()` |
+| Scenario name | `scenarioResult?.getName()` |
+| Scenario tags | `scenarioResult?.getTags()` |
+| Spec file path (absolute) | `specInfo?.getFileName()` |
+| Spec heading text | `specInfo?.getName()` |
+| Spec-level tags | `specInfo?.getTags()` |
+| Error message (on failure) | `failedStep?.getErrorMessage?.()` |
+| Stack trace (on failure) | `failedStep?.getStackTrace?.()` |
 
 ---
 
@@ -418,11 +499,22 @@ await loginPage().loginAs(env.username, env.password);
 ```
 
 ```properties
-# env/default/default.properties
-USERNAME = Admin
-PASSWORD = admin123
-BASE_URL = https://opensource-demo.orangehrmlive.com
+# env/saucedemo/default.properties
+USERNAME = standard_user
+PASSWORD = secret_sauce
+BASE_URL  = https://www.saucedemo.com
 ```
+
+### EnvLoader resolution: cfg() vs secret()
+
+`EnvLoader` uses two internal resolution strategies:
+
+| Strategy | Used for | Who wins |
+|---|---|---|
+| `cfg()` | `HEADLESS`, `BASE_URL`, `BROWSER`, page URLs, observability settings | **File wins** — prevents Gauge's default-env values from overriding env-specific config |
+| `secret()` | `USERNAME`, `PASSWORD`, `DB_HOST`, `DB_PASSWORD`, `DB_ENABLED` | **Non-empty `process.env` wins** — CI secrets always override the file |
+
+This means setting `DB_ENABLED=true` as a CI environment variable overrides `DB_ENABLED=false` in the properties file without any changes to the file.
 
 ---
 
@@ -453,6 +545,18 @@ async open(): Promise<void> {
 }
 ```
 
+### Reading the observability JSON in Allure
+
+After a run, open any scenario in the Allure Suites panel → scroll to **Attachments** → open `observability-summary`. Key fields:
+
+| Field | When to act |
+|---|---|
+| `networkFailures > 0` | Check `apiEdges` for the failing URL — API or infra problem |
+| `uncaughtExceptions > 0` | Front-end JavaScript crash — likely a product bug |
+| `slowApiCalls > 0` | Performance regression — check `apiEdges[].duration` |
+| `consoleErrors > 0` | UI rendering issue — cross-check with the failure screenshot |
+| `severity = "HIGH"` | Multiple signals are firing — prioritise this failure |
+
 ---
 
 ## 8. AI Analyzer Integration
@@ -463,8 +567,9 @@ async open(): Promise<void> {
 - Configure `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` in your CI secrets — never in committed files.
 - Use `AI_PROVIDER=anthropic` with `claude-3-5-sonnet-20241022` for the most accurate analysis (vision + strong reasoning).
 - Use `AI_PROVIDER=openai-compatible` with `AI_BASE_URL=http://localhost:11434/v1` and a local Ollama model for cost-free local testing of the analyzer itself.
-- Let `failureStackTrace` flow through automatically — it is captured in `@AfterScenario` from `ExecutionContext` and requires no manual code.
+- Let `failureStackTrace` flow through automatically — it is captured in `@AfterScenario` from `ExecutionContext` via getter methods and requires no manual code.
 - Review AI suggestions as a starting point — validate against the actual code before acting.
+- Read the `confidence` field: above `0.8` act on it; below `0.6` treat it as a hint.
 
 **DON'T**
 - Don't hardcode API keys in `.env` files committed to Git.
@@ -484,7 +589,7 @@ async open(): Promise<void> {
 | Component class | `PascalCase` + `Component` suffix | `LoginFormComponent` |
 | Page class | `PascalCase` + `Page` suffix | `OrangeLoginPage` |
 | Step file | `camelCase.steps.ts` | `orangehrm.steps.ts` |
-| Spec file | `camelCase.md` | `orangeHrmLogin.md` |
+| Spec file | `camelCase.md` | `login.md` |
 | Env property file | `default.properties` | `env/orangehrm/default.properties` |
 | Test data folder | `<module>/` | `tests/data/orangehrm/` |
 
@@ -524,26 +629,32 @@ const LOGIN_BUTTON_SELECTOR  = { automationId: 'btn-login' };
 | You want to... | Put it in... |
 |---|---|
 | Describe a user journey in plain English | Gauge spec file `.md` |
+| Tag a scenario with its priority | Gauge tags: `critical` / `high` / `medium` / `low` |
 | Wire a step phrase to code | Step implementation file `.steps.ts` |
 | Orchestrate UI actions for a page | Thin Page file `Page.ts` |
 | Interact with a UI element (fill, click, assert) | Component class `Component.ts` |
 | Share state between steps in one scenario | `DataStore.ScenarioDataStore` |
 | Configure URLs, credentials, thresholds | `env/<env>/default.properties` |
+| Override credentials in CI without touching files | CI secrets → `secret()` resolver in `EnvLoader` |
 | Store data for data-driven tests (small) | Gauge table in the spec file |
 | Store data for data-driven tests (large) | CSV/JSON in `tests/data/<module>/` |
 | Capture browser events automatically | `ObservabilityCollector` (already wired) |
 | Set the page name for telemetry attribution | `obs.setCurrentPage('...')` in `open()` |
-| Access error message when a test fails | `ExecutionContext.currentScenario.failedStep.errorMessage` in hooks |
+| Write Allure Environment / Categories / Executor metadata | `new AllureSetup(env).writeAll()` in `@BeforeSuite` |
+| Read error message when a test fails | `scenarioResult?.getIsFailing()` + `failedStep?.getErrorMessage?.()` via `ExecutionContext` getter methods |
 | Classify a test failure using AI | `AIAnalyzer.analyzeRunBatch(runId)` — runs automatically in CI |
+| See which env, browser, and URL ran a report | Allure → Overview → Environment widget |
+| Understand why a test is in the Categories panel | Open the failed test → read the matched error message |
 
 ---
 
 ## Summary: The One-Sentence Rule per Layer
 
-- **Spec** — *What* the user does, in plain English.
+- **Spec** — *What* the user does, in plain English, with a priority tag.
 - **Step implementation** — *Bridges* the phrase to a page method. No Playwright code.
 - **Page file** — *Composes* components. No raw locators.
 - **Component** — *Wraps* a single UI element or widget. The only place raw Playwright locators are allowed.
-- **Hook** — *Manages* the browser lifecycle and captures telemetry/failures.
+- **Hook** — *Manages* the browser lifecycle, writes Allure metadata, and captures telemetry/failures using getter methods.
 - **ObservabilityCollector** — *Listens* to browser events silently. No test code calls it directly.
+- **AllureSetup** — *Writes* one-time suite metadata (environment, categories, executor, history) so all Allure panels are populated.
 - **AI Analyzer** — *Reads* the failure data and tells you why it failed.

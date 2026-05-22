@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>playgauge_framework — How to Read the Allure Report</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #e8eaf0;
+    --text-muted: #8892b0;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --blue: #60a5fa;
+    --orange: #fb923c;
+    --purple: #c084fc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; }
+
+  /* ── Slide container ── */
+  #deck { width: 100vw; height: 100vh; position: relative; }
+  .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; padding: 44px 64px 28px; overflow-y: auto; }
+  .slide.active { display: flex; }
+
+  /* ── Navigation ── */
+  #nav { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; z-index: 100; background: rgba(26,29,39,0.95); border: 1px solid var(--border); border-radius: 32px; padding: 10px 20px; backdrop-filter: blur(8px); }
+  #nav button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 16px; transition: all .2s; }
+  #nav button:hover { background: var(--accent); border-color: var(--accent); }
+  #slide-counter { font-size: 13px; color: var(--text-muted); min-width: 80px; text-align: center; }
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent2); transition: width .3s; z-index: 100; }
+
+  /* ── Thumb nav ── */
+  #thumbs { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 100; }
+  .thumb { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all .2s; }
+  .thumb.active { background: var(--accent2); transform: scale(1.4); }
+
+  /* ── Typography ── */
+  .slide-tag { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent2); margin-bottom: 12px; }
+  h1 { font-size: 40px; font-weight: 800; line-height: 1.15; margin-bottom: 16px; }
+  h2 { font-size: 26px; font-weight: 700; margin-bottom: 18px; }
+  h3 { font-size: 17px; font-weight: 600; margin-bottom: 10px; color: var(--accent2); }
+  p  { font-size: 15px; line-height: 1.7; color: var(--text-muted); margin-bottom: 12px; }
+  .lead { font-size: 19px; color: var(--text); line-height: 1.6; }
+  .highlight  { color: var(--accent);  font-weight: 600; }
+  .highlight2 { color: var(--accent2); font-weight: 600; }
+  code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 12px; color: var(--accent4); }
+
+  /* ── Grids ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card.accent-l  { border-left: 3px solid var(--accent); }
+  .card.accent-g  { border-left: 3px solid var(--green); }
+  .card.accent-r  { border-left: 3px solid var(--red); }
+  .card.accent-y  { border-left: 3px solid var(--yellow); }
+  .card.accent-b  { border-left: 3px solid var(--blue); }
+  .card.accent-t  { border-left: 3px solid var(--accent2); }
+  .card.accent-o  { border-left: 3px solid var(--orange); }
+  .card.accent-p  { border-left: 3px solid var(--purple); }
+  .card h3 { color: var(--text); font-size: 14px; margin-bottom: 8px; }
+  .card p  { font-size: 13px; margin-bottom: 0; }
+  .card-icon { font-size: 26px; margin-bottom: 10px; }
+
+  /* ── Code blocks ── */
+  pre { background: #0d0f1a; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 12px; overflow-x: auto; margin: 10px 0; line-height: 1.65; }
+  .kw   { color: #c792ea; }
+  .str  { color: #c3e88d; }
+  .cmt  { color: #546e7a; font-style: italic; }
+  .fn   { color: #82aaff; }
+  .num  { color: #f78c6c; }
+  .typ  { color: #ffcb6b; }
+  .prop { color: #f07178; }
+  .val  { color: #c3e88d; }
+
+  /* ── Pill rows ── */
+  .pill { background: var(--surface2); border-radius: 8px; padding: 12px 16px; margin: 6px 0; display: flex; gap: 14px; align-items: flex-start; }
+  .pill .icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .pill h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+  .pill p  { font-size: 12px; margin: 0; }
+
+  /* ── Severity badges ── */
+  .sev { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+  .sev.blocker  { background: rgba(248,113,113,.2);  color: var(--red);    border: 1px solid rgba(248,113,113,.4); }
+  .sev.critical { background: rgba(251,146,60,.2);   color: var(--orange); border: 1px solid rgba(251,146,60,.4); }
+  .sev.normal   { background: rgba(96,165,250,.2);   color: var(--blue);   border: 1px solid rgba(96,165,250,.4); }
+  .sev.minor    { background: rgba(74,222,128,.2);   color: var(--green);  border: 1px solid rgba(74,222,128,.4); }
+  .sev.trivial  { background: rgba(136,146,176,.2);  color: var(--text-muted); border: 1px solid rgba(136,146,176,.4); }
+
+  /* ── Category chips ── */
+  .cat { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; margin: 3px; }
+  .cat.defect { background: rgba(248,113,113,.15); color: var(--red);    border: 1px solid rgba(248,113,113,.3); }
+  .cat.test   { background: rgba(108,99,255,.15);  color: var(--accent); border: 1px solid rgba(108,99,255,.3); }
+  .cat.infra  { background: rgba(96,165,250,.15);  color: var(--blue);   border: 1px solid rgba(96,165,250,.3); }
+  .cat.broken { background: rgba(251,191,36,.15);  color: var(--yellow); border: 1px solid rgba(251,191,36,.3); }
+
+  /* ── JSON field key/value ── */
+  .json-key   { color: #f07178; }
+  .json-str   { color: #c3e88d; }
+  .json-num   { color: #f78c6c; }
+  .json-bool  { color: #c792ea; }
+  .json-null  { color: #546e7a; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); color: var(--accent2); text-align: left; padding: 9px 13px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  td { padding: 9px 13px; border-top: 1px solid var(--border); color: var(--text-muted); vertical-align: top; }
+  tr:hover td { background: var(--surface2); }
+
+  /* ── Check/cross lists ── */
+  .check-list { list-style: none; }
+  .check-list li { padding: 5px 0; font-size: 13px; color: var(--text-muted); padding-left: 22px; position: relative; line-height: 1.5; }
+  .check-list li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+
+  /* ── Flow ── */
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 12px 0; }
+  .flow-box { background: var(--surface2); border: 1px solid var(--accent2); border-radius: 8px; padding: 9px 16px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .flow-box.r { border-color: var(--red); }
+  .flow-box.g { border-color: var(--green); }
+  .flow-box.b { border-color: var(--blue); }
+  .flow-box.y { border-color: var(--yellow); }
+  .flow-arrow { color: var(--text-muted); font-size: 18px; padding: 0 6px; }
+
+  /* ── Step number circles ── */
+  .step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: white; font-size: 11px; font-weight: 800; flex-shrink: 0; margin-right: 10px; }
+
+  /* ── Callout box ── */
+  .callout { background: rgba(0,212,170,.08); border: 1px solid rgba(0,212,170,.25); border-radius: 10px; padding: 14px 18px; margin: 10px 0; }
+  .callout.warn  { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.25); }
+  .callout.info  { background: rgba(96,165,250,.08); border-color: rgba(96,165,250,.25); }
+  .callout.error { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.25); }
+  .callout p { font-size: 13px; margin: 0; color: var(--text); }
+
+  /* ── Panel nav mockup ── */
+  .panel-nav { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .panel-nav-item { padding: 10px 18px; font-size: 13px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .panel-nav-item:last-child { border-bottom: none; }
+  .panel-nav-item.active { background: rgba(108,99,255,.15); border-left: 3px solid var(--accent); color: var(--text); font-weight: 600; }
+  .panel-nav-item:not(.active) { color: var(--text-muted); }
+  .panel-icon { font-size: 16px; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .slide { padding: 28px 20px 20px; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="thumbs"></div>
+<div id="deck">
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 1 — Title -->
+<div class="slide active">
+  <div class="slide-tag">Allure Report Guide</div>
+  <h1>How to Read the<br>Allure Report</h1>
+  <p class="lead" style="max-width:700px">A complete visual guide to every panel, attachment, and label in the <span class="highlight2">playgauge_framework</span> Allure report — from summary stats to embedded AI analysis JSON.</p>
+  <div class="grid-4" style="margin-top:28px">
+    <div class="card accent-t"><div class="card-icon">🗂️</div><h3>8 Panels</h3><p>Overview · Environment · Executors · Categories · Suites · Behaviors · Timeline · Trend</p></div>
+    <div class="card accent-l"><div class="card-icon">📎</div><h3>3 Attachments</h3><p>Observability JSON · AI Analysis JSON · Failure Screenshot — embedded per scenario</p></div>
+    <div class="card accent-y"><div class="card-icon">🏷️</div><h3>Severity Labels</h3><p>BLOCKER · CRITICAL · NORMAL · MINOR — driven by Gauge tags on every scenario</p></div>
+    <div class="card accent-g"><div class="card-icon">📈</div><h3>Trend History</h3><p>Pass/fail trend across CI runs via persisted history artifacts</p></div>
+  </div>
+  <div class="callout" style="margin-top:24px">
+    <p>💡 <strong>Open locally:</strong> run <code>npm run allure:generate</code> then <code>npm run allure:open</code> → opens at <code>http://localhost:5050</code>. In CI the report is published to GitHub Pages after every run on <code>main</code>.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 2 — Navigation -->
+<div class="slide">
+  <div class="slide-tag">Navigation</div>
+  <h2>Navigating the Allure Report</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Left-side panel navigation</h3>
+      <div class="panel-nav" style="margin-bottom:18px">
+        <div class="panel-nav-item active"><span class="panel-icon">🏠</span> Overview</div>
+        <div class="panel-nav-item"><span class="panel-icon">🌿</span> Suites</div>
+        <div class="panel-nav-item"><span class="panel-icon">📖</span> Behaviors</div>
+        <div class="panel-nav-item"><span class="panel-icon">⏱️</span> Timeline</div>
+        <div class="panel-nav-item"><span class="panel-icon">📈</span> Trend (Retries)</div>
+        <div class="panel-nav-item"><span class="panel-icon">🏷️</span> Categories</div>
+        <div class="panel-nav-item"><span class="panel-icon">🌐</span> Packages</div>
+      </div>
+      <h3>Summary widgets on Overview</h3>
+      <div class="pill"><div class="icon">🍩</div><div><h4>Doughnut chart (top-left)</h4><p>Passed / Failed / Broken / Skipped count. Click any slice to drill into that subset of tests.</p></div></div>
+      <div class="pill"><div class="icon">📊</div><div><h4>Trend mini-bar (top-right)</h4><p>Last N CI runs at a glance. Only fills after 2+ runs with saved history.</p></div></div>
+      <div class="pill"><div class="icon">📑</div><div><h4>Statistic table (bottom)</h4><p>Shows suites, features, stories, tests, attachments counts — quick health check.</p></div></div>
+    </div>
+    <div>
+      <h3>Opening a failed test</h3>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px">
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">1</span><span style="font-size:13px; color:var(--text-muted)">Click <strong>Suites</strong> in the left nav</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">2</span><span style="font-size:13px; color:var(--text-muted)">Expand the spec file folder (e.g. <code>specs/saucedemo/login.md</code>)</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">3</span><span style="font-size:13px; color:var(--text-muted)">Click the red ✗ scenario to open the detail pane</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">4</span><span style="font-size:13px; color:var(--text-muted)">On the right pane: read <strong>Overview</strong> tab first (labels, params, timing)</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">5</span><span style="font-size:13px; color:var(--text-muted)">Switch to <strong>Test body</strong> tab to see step-by-step pass/fail trace</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">6</span><span style="font-size:13px; color:var(--text-muted)">Scroll to <strong>Attachments</strong> section — open observability JSON, screenshot, AI analysis</span></div>
+      </div>
+      <div class="callout info">
+        <p>📌 <strong>Tip:</strong> the <em>red error message</em> shown at the top of a failed scenario is the exact Playwright exception — the same text the AI analyzer uses for classification. Read this first before looking at attachments.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 3 — Environment Panel -->
+<div class="slide">
+  <div class="slide-tag">Environment Panel</div>
+  <h2>Environment Panel</h2>
+  <p>Answers: <em>"Which environment did this report come from?"</em> — visible on the Overview page as the Environment widget.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>What you see</h3>
+      <table style="margin-bottom:16px">
+        <tr><th>Field</th><th>Example value</th><th>Source</th></tr>
+        <tr><td><code>Environment</code></td><td>saucedemo</td><td><code>ENV_NAME</code> in .properties file</td></tr>
+        <tr><td><code>BASE_URL</code></td><td>https://www.saucedemo.com</td><td><code>BASE_URL</code> in .properties file</td></tr>
+        <tr><td><code>Browser</code></td><td>chromium</td><td><code>BROWSER</code> in .properties file</td></tr>
+        <tr><td><code>Headless</code></td><td>true</td><td><code>HEADLESS</code> in .properties file</td></tr>
+        <tr><td><code>AI_Provider</code></td><td>anthropic</td><td><code>AI_PROVIDER</code> (cfg)</td></tr>
+        <tr><td><code>DB_Enabled</code></td><td>false</td><td><code>DB_ENABLED</code> (secret)</td></tr>
+        <tr><td><code>Run_ID</code></td><td>local / 1234567890</td><td><code>process.env.RUN_ID</code></td></tr>
+      </table>
+      <div class="callout">
+        <p>✅ Values shown here always reflect the <strong>actual</strong> environment that ran — not the default. This is guaranteed by <code>PLAYGAUGE_ENV</code> and the <code>cfg()</code> resolver in <code>EnvLoader</code>.</p>
+      </div>
+    </div>
+    <div>
+      <h3>How it is written</h3>
+      <p>Written once at suite start by <code>AllureSetup.writeEnvironment()</code> called from the <code>@BeforeSuite</code> hook in <code>hooks.ts</code>:</p>
+      <pre><span class="cmt">// hooks.ts — @BeforeSuite</span>
+<span class="kw">if</span> (env.observabilityAttachAllure) {
+  <span class="kw">new</span> <span class="typ">AllureSetup</span>(env).<span class="fn">writeAll</span>();
+}
+
+<span class="cmt">// AllureSetup.writeEnvironment() produces:</span>
+<span class="cmt">// allure-results/environment.properties</span>
+Environment  = saucedemo
+BASE_URL     = https://www.saucedemo.com
+Browser      = chromium
+Headless     = <span class="kw">true</span>
+AI_Provider  = anthropic
+DB_Enabled   = <span class="kw">false</span>
+Run_ID       = local</pre>
+      <div class="callout warn">
+        <p>⚠️ If the Environment panel is <strong>empty or shows wrong values</strong>, the likely cause is running <code>gauge</code> directly without setting <code>PLAYGAUGE_ENV</code>. Always use <code>npm run gauge:saucedemo</code> (or the relevant <code>gauge:*</code> script).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 4 — Executors Panel -->
+<div class="slide">
+  <div class="slide-tag">Executors Panel</div>
+  <h2>Executors Panel</h2>
+  <p>Answers: <em>"Who ran this report — a developer locally or GitHub Actions?"</em> Shown as the Executor widget on the Overview page.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Local run — what it shows</h3>
+      <pre>{
+  <span class="json-key">"name"</span>:       <span class="json-str">"Local"</span>,
+  <span class="json-key">"type"</span>:       <span class="json-str">"local"</span>,
+  <span class="json-key">"buildName"</span>:  <span class="json-str">"Local run — 22/05/2026, 10:34:21"</span>,
+  <span class="json-key">"reportName"</span>: <span class="json-str">"Allure Report"</span>
+}</pre>
+      <p>The timestamp tells you exactly when the local run happened, useful when comparing two reports from the same machine.</p>
+
+      <h3 style="margin-top:16px">CI run — what it shows</h3>
+      <pre>{
+  <span class="json-key">"name"</span>:       <span class="json-str">"GitHub Actions"</span>,
+  <span class="json-key">"type"</span>:       <span class="json-str">"github"</span>,
+  <span class="json-key">"url"</span>:        <span class="json-str">"https://github.com/org/repo"</span>,
+  <span class="json-key">"buildOrder"</span>: <span class="json-num">47</span>,
+  <span class="json-key">"buildName"</span>:  <span class="json-str">"Run #47"</span>,
+  <span class="json-key">"buildUrl"</span>:   <span class="json-str">"https://github.com/.../runs/1234"</span>,
+  <span class="json-key">"reportName"</span>: <span class="json-str">"Allure Report"</span>
+}</pre>
+    </div>
+    <div>
+      <h3>How to use the Executor panel</h3>
+      <div class="pill"><div class="icon">🔗</div><div><h4>Click the build link</h4><p>In a CI report the executor widget shows a clickable link to the exact GitHub Actions run that produced this report — jump directly to the logs.</p></div></div>
+      <div class="pill"><div class="icon">🔢</div><div><h4>Build order number</h4><p>The <code>buildOrder</code> is the GitHub run number. Use it to cross-reference the <strong>Trend chart</strong> — each bar corresponds to one build order.</p></div></div>
+      <div class="pill"><div class="icon">🖥️</div><div><h4>Local vs CI distinction</h4><p>When sharing a report with your team, the Executor panel immediately tells them whether the failure was reproduced on a fresh CI machine or only on your laptop.</p></div></div>
+      <div class="callout" style="margin-top:12px">
+        <p>Written by <code>AllureSetup.writeExecutor()</code> using GitHub Actions environment variables: <code>GITHUB_RUN_NUMBER</code>, <code>GITHUB_REPOSITORY</code>, <code>GITHUB_RUN_ID</code>, <code>GITHUB_SERVER_URL</code>. Automatically detected — no configuration needed.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 5 — Categories Panel -->
+<div class="slide">
+  <div class="slide-tag">Categories Panel</div>
+  <h2>Categories Panel</h2>
+  <p>Answers: <em>"Why are tests failing — app bug, broken automation, or infra issue?"</em> Only populated when tests actually fail.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>The 3 failure buckets</h3>
+      <div style="margin-bottom:16px">
+        <div class="cat defect" style="display:flex; width:100%; margin:6px 0; padding:10px 14px">
+          <div>
+            <div style="font-size:14px; margin-bottom:4px">🐛 Product Defects</div>
+            <div style="font-size:12px; font-weight:400; opacity:.8">Status: <strong>FAILED</strong> — error message matches assertion keywords</div>
+            <div style="font-size:11px; opacity:.7; margin-top:3px">AssertionError · expect( · toHaveText · toBeVisible · toEqual · toContain</div>
+          </div>
+        </div>
+        <div class="cat test" style="display:flex; width:100%; margin:6px 0; padding:10px 14px">
+          <div>
+            <div style="font-size:14px; margin-bottom:4px">🔧 Test Issues</div>
+            <div style="font-size:12px; font-weight:400; opacity:.8">Status: <strong>FAILED / BROKEN</strong> — error message matches automation keywords</div>
+            <div style="font-size:11px; opacity:.7; margin-top:3px">TimeoutError · locator.* · selector · Cannot read prop · is not a function</div>
+          </div>
+        </div>
+        <div class="cat infra" style="display:flex; width:100%; margin:6px 0; padding:10px 14px">
+          <div>
+            <div style="font-size:14px; margin-bottom:4px">🌐 Infrastructure Issues</div>
+            <div style="font-size:12px; font-weight:400; opacity:.8">Status: <strong>FAILED / BROKEN</strong> — error message matches network keywords</div>
+            <div style="font-size:11px; opacity:.7; margin-top:3px">ECONNREFUSED · ENOTFOUND · ERR_CONNECTION · net::ERR · ETIMEDOUT · Network request failed</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout info">
+        <p>📌 A test can appear in <strong>more than one category</strong> if its error message matches multiple regex patterns — e.g. a TimeoutError caused by a network failure shows in both Test Issues and Infrastructure Issues.</p>
+      </div>
+    </div>
+    <div>
+      <h3>Why is my Categories panel empty?</h3>
+      <div class="card accent-g" style="margin-bottom:12px">
+        <h3>✅ All tests passed</h3>
+        <p>This is correct behaviour. Categories only classify <strong>failed</strong> tests. An empty panel is good news.</p>
+      </div>
+      <h3 style="margin-top:4px">How to read a populated Categories panel</h3>
+      <div class="pill"><div class="icon">1️⃣</div><div><h4>Click a category name</h4><p>Expands to list every failed test that matched the pattern. Click any test to open its detail pane.</p></div></div>
+      <div class="pill"><div class="icon">2️⃣</div><div><h4>Read the matched error</h4><p>Allure shows the specific part of the error message that triggered the category match — confirms why it was classified there.</p></div></div>
+      <div class="pill"><div class="icon">3️⃣</div><div><h4>Cross-check with AI Analysis attachment</h4><p>Open the <em>AI Analysis JSON</em> attachment on the same test — it provides a confidence score and suggests the root cause. Allure categories are pattern-matched; AI reasoning is evidence-based.</p></div></div>
+      <div class="callout warn" style="margin-top:10px">
+        <p>⚠️ Categories are written to <code>allure-results/categories.json</code> by <code>AllureSetup</code> before the suite runs. If categories.json is missing, the panel will not appear even when tests fail.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 6 — Severity Labels -->
+<div class="slide">
+  <div class="slide-tag">Severity Labels</div>
+  <h2>Severity Labels — Test Priority in Allure</h2>
+  <p>Every scenario carries a <strong>Severity</strong> label that maps from the Gauge priority tag you add. Visible in the test detail pane under <em>Labels</em>.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Tag → Severity mapping</h3>
+      <table style="margin-bottom:16px">
+        <tr><th>Gauge tag in spec</th><th>Allure Severity</th><th>Meaning</th></tr>
+        <tr>
+          <td><code>Tags: smoke, <strong>critical</strong></code></td>
+          <td><span class="sev blocker">● BLOCKER</span></td>
+          <td>Stops the release. Fix before shipping.</td>
+        </tr>
+        <tr>
+          <td><code>Tags: regression, <strong>high</strong></code></td>
+          <td><span class="sev critical">● CRITICAL</span></td>
+          <td>Major impact. Fix in this sprint.</td>
+        </tr>
+        <tr>
+          <td><code>Tags: regression, <strong>medium</strong></code></td>
+          <td><span class="sev normal">● NORMAL</span></td>
+          <td>Moderate impact. Schedule for fix.</td>
+        </tr>
+        <tr>
+          <td><code>Tags: regression, <strong>low</strong></code></td>
+          <td><span class="sev minor">● MINOR</span></td>
+          <td>Low impact. Fix when time permits.</td>
+        </tr>
+        <tr>
+          <td><em>(no priority tag)</em></td>
+          <td><span class="sev normal">● NORMAL</span></td>
+          <td>Default when no tag is provided.</td>
+        </tr>
+      </table>
+      <div class="callout">
+        <p>✅ Severity tags are <strong>informational only</strong> — they never affect which tests are included or excluded from a run. They appear in Allure to help you triage which failures need immediate attention.</p>
+      </div>
+    </div>
+    <div>
+      <h3>How to add severity to a scenario</h3>
+      <pre><span class="cmt"># Login Tests</span>
+<span class="cmt">Tags: login, regression, saucedemo</span>
+
+<span class="cmt">## Successful login with standard user</span>
+<span class="cmt">Tags: smoke, <strong>critical</strong></span>          <span class="cmt">← BLOCKER in Allure</span>
+<span class="str">* Open SauceDemo login page</span>
+<span class="str">* Login as "standard_user"</span>
+<span class="str">* Verify dashboard is displayed</span>
+
+<span class="cmt">## Login fails with wrong password</span>
+<span class="cmt">Tags: regression, <strong>high</strong></span>         <span class="cmt">← CRITICAL in Allure</span>
+<span class="str">* Open SauceDemo login page</span>
+<span class="str">* Login as "standard_user" with wrong password</span>
+<span class="str">* Verify error message is shown</span>
+
+<span class="cmt">## Login page has all required elements</span>
+<span class="cmt">Tags: smoke, <strong>medium</strong></span>          <span class="cmt">← NORMAL in Allure</span>
+<span class="str">* Open SauceDemo login page</span>
+<span class="str">* Verify all login elements are visible</span></pre>
+      <h3 style="margin-top:12px">Where to see it in the report</h3>
+      <div class="pill"><div class="icon">🏷️</div><div><h4>Test detail pane → Labels section</h4><p>Open any scenario in Suites view. The Labels widget shows Severity, Suite (spec name), Feature (spec file path), and all Gauge tags.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 7 — Suites Panel -->
+<div class="slide">
+  <div class="slide-tag">Suites Panel</div>
+  <h2>Suites Panel — Browsing Tests by Spec File</h2>
+  <p>The Suites panel organises every test by the Gauge spec file it belongs to — the most common starting point for triage.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Hierarchy in the Suites panel</h3>
+      <pre style="font-size:12px">Suite (spec name)
+  └─ specs/saucedemo/login.md
+        ├─ ✅ Successful login with standard user   <span class="cmt">← PASSED</span>
+        ├─ ✅ Login fails with wrong password
+        ├─ ✅ Locked out user cannot login
+        └─ ✅ Login page has all required elements
+
+  └─ specs/saucedemo/shopping.md
+        ├─ ✅ Products page loads with all items
+        ├─ ✅ Add single item to cart
+        ├─ ❌ Full checkout flow end-to-end         <span class="cmt">← FAILED</span>
+        └─ ✅ Sort products by price low to high</pre>
+      <h3 style="margin-top:12px">Icons and colours</h3>
+      <table>
+        <tr><th>Icon / colour</th><th>Meaning</th></tr>
+        <tr><td><span style="color:var(--green)">✅ Green</span></td><td>Passed — scenario completed all steps</td></tr>
+        <tr><td><span style="color:var(--red)">❌ Red</span></td><td>Failed — assertion failed or exception thrown</td></tr>
+        <tr><td><span style="color:var(--yellow)">⚠️ Yellow</span></td><td>Broken — unexpected exception (not an assertion)</td></tr>
+        <tr><td><span style="color:var(--text-muted)">⏭️ Grey</span></td><td>Skipped — excluded by tag filter</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Test detail pane — what each tab shows</h3>
+      <div class="pill"><div class="icon">📋</div><div><h4>Overview tab</h4><p>Labels (Severity, Suite, Feature, Tags), parameters (e.g. <code>test.priority</code>), test duration, host info. Check severity and tags here first.</p></div></div>
+      <div class="pill"><div class="icon">🪜</div><div><h4>Test body tab</h4><p>Step-by-step trace. Each Gauge step shows ✅ / ❌ and its duration. The first red step is where the failure occurred — scroll to it immediately.</p></div></div>
+      <div class="pill"><div class="icon">📎</div><div><h4>Attachments section</h4><p>At the bottom of the detail pane. Contains:
+        <br>• <strong>observability-summary</strong> (JSON) — browser telemetry
+        <br>• <strong>failure-screenshot</strong> (PNG) — browser state at failure
+        <br>• <strong>ai-analysis</strong> (JSON, CI only) — AI classification result</p></div></div>
+      <div class="callout info" style="margin-top:10px">
+        <p>📌 <strong>Quick triage flow:</strong> Overview tab → read Severity → Test body tab → find first red step → Attachments → open screenshot → open AI JSON for suggested fix.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 8 — Observability JSON -->
+<div class="slide">
+  <div class="slide-tag">Observability Attachment</div>
+  <h2>Observability JSON Attachment</h2>
+  <p>The <strong>observability-summary</strong> attachment is a JSON snapshot of everything the browser did during that scenario — captured automatically, no extra code needed in steps.</p>
+  <div class="grid-2" style="margin-top:4px">
+    <div>
+      <h3>Full JSON structure</h3>
+      <pre style="font-size:11px">{
+  <span class="json-key">"spec"</span>:              <span class="json-str">"specs/saucedemo/shopping.md"</span>,
+  <span class="json-key">"test"</span>:              <span class="json-str">"Full checkout flow end-to-end"</span>,
+  <span class="json-key">"module"</span>:            <span class="json-str">"Shopping Tests"</span>,
+  <span class="json-key">"environment"</span>:       <span class="json-str">"saucedemo"</span>,
+  <span class="json-key">"testStatus"</span>:        <span class="json-str">"passed"</span>,
+  <span class="json-key">"failureMessage"</span>:    <span class="json-str">""</span>,
+
+  <span class="cmt">// ── Observability counts ──────────────────</span>
+  <span class="json-key">"consoleErrors"</span>:     <span class="json-num">0</span>,
+  <span class="json-key">"consoleWarnings"</span>:   <span class="json-num">2</span>,
+  <span class="json-key">"networkFailures"</span>:   <span class="json-num">0</span>,
+  <span class="json-key">"slowApiCalls"</span>:      <span class="json-num">1</span>,
+  <span class="json-key">"uncaughtExceptions"</span>:<span class="json-num">0</span>,
+
+  <span class="cmt">// ── Severity score ────────────────────────</span>
+  <span class="json-key">"severity"</span>:          <span class="json-str">"LOW"</span>,
+  <span class="json-key">"severityScore"</span>:     <span class="json-num">4</span>,
+
+  <span class="cmt">// ── Rule-based hint for AI ────────────────</span>
+  <span class="json-key">"ruleCategoryHint"</span>:  <span class="json-str">"none"</span>,
+
+  <span class="cmt">// ── API edges (calls made) ────────────────</span>
+  <span class="json-key">"apiEdges"</span>: [
+    {
+      <span class="json-key">"url"</span>:      <span class="json-str">"/api/v2/products"</span>,
+      <span class="json-key">"method"</span>:  <span class="json-str">"GET"</span>,
+      <span class="json-key">"status"</span>:  <span class="json-num">200</span>,
+      <span class="json-key">"duration"</span>:<span class="json-num">2340</span>,          <span class="cmt">← slow!</span>
+      <span class="json-key">"isSlow"</span>:  <span class="json-bool">true</span>
+    }
+  ]
+}</pre>
+    </div>
+    <div>
+      <h3>Field-by-field guide</h3>
+      <table style="font-size:12px">
+        <tr><th>Field</th><th>What it tells you</th></tr>
+        <tr><td><code>consoleErrors</code></td><td>JavaScript errors from <code>page.on('console')</code> — a non-zero value usually indicates a front-end bug</td></tr>
+        <tr><td><code>consoleWarnings</code></td><td>Deprecation warnings, unexpected states — low priority but worth noting</td></tr>
+        <tr><td><code>networkFailures</code></td><td>Failed XHR/fetch calls (<code>page.on('requestfailed')</code>) — strong signal for infra or API issues</td></tr>
+        <tr><td><code>slowApiCalls</code></td><td>API calls that exceeded <code>SLOW_API_THRESHOLD_MS</code> (default 2000 ms) — performance signal</td></tr>
+        <tr><td><code>uncaughtExceptions</code></td><td>Unhandled JS exceptions (<code>page.on('pageerror')</code>) — highest severity signal</td></tr>
+        <tr><td><code>severity</code></td><td>Computed: NONE / LOW / MEDIUM / HIGH based on weighted score</td></tr>
+        <tr><td><code>severityScore</code></td><td>Raw score: 5×uncaught + 4×netFail + 3×consErr + 2×slowApi + 1×warnings</td></tr>
+        <tr><td><code>ruleCategoryHint</code></td><td>Pre-classification hint fed to AI: <code>flaky</code> / <code>environment</code> / <code>none</code></td></tr>
+        <tr><td><code>apiEdges</code></td><td>Every API call: URL, method, HTTP status, duration ms, whether it was slow</td></tr>
+      </table>
+      <div class="callout" style="margin-top:10px">
+        <p>💡 When a test fails: check <code>networkFailures &gt; 0</code> first — this immediately points to an API or infra problem rather than an automation issue. Then check <code>uncaughtExceptions</code> — this points to a product bug.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 9 — AI Analysis JSON -->
+<div class="slide">
+  <div class="slide-tag">AI Analysis Attachment</div>
+  <h2>AI Analysis JSON Attachment</h2>
+  <p>Available in CI only (when <code>AI_API_KEY</code> is set). The <strong>ai-analysis</strong> attachment gives you a structured root-cause diagnosis for every failed test.</p>
+  <div class="grid-2" style="margin-top:4px">
+    <div>
+      <h3>Full JSON structure</h3>
+      <pre style="font-size:11px">{
+  <span class="json-key">"testName"</span>:       <span class="json-str">"Full checkout flow end-to-end"</span>,
+  <span class="json-key">"runId"</span>:          <span class="json-str">"12345678901"</span>,
+  <span class="json-key">"aiProvider"</span>:     <span class="json-str">"anthropic"</span>,
+  <span class="json-key">"aiModel"</span>:        <span class="json-str">"claude-3-5-sonnet-20241022"</span>,
+  <span class="json-key">"analysedAt"</span>:     <span class="json-str">"2026-05-22T01:15:43Z"</span>,
+
+  <span class="cmt">// ── Primary classification ──────────────</span>
+  <span class="json-key">"category"</span>:       <span class="json-str">"Product Issue"</span>,
+  <span class="json-key">"confidence"</span>:     <span class="json-num">0.91</span>,
+
+  <span class="cmt">// ── Evidence-based explanation ──────────</span>
+  <span class="json-key">"reasoning"</span>: <span class="json-str">"Stack trace shows TimeoutError
+    on locator('.checkout-complete')
+    immediately after a 500 response
+    from /api/v1/orders. Two console
+    errors confirm a server-side failure,
+    not a selector or timing issue."</span>,
+
+  <span class="cmt">// ── Concrete next steps ─────────────────</span>
+  <span class="json-key">"suggestions"</span>: [
+    <span class="json-str">"Check /api/v1/orders server logs
+      at this timestamp"</span>,
+    <span class="json-str">"Verify the order payload schema
+      matches the API contract"</span>,
+    <span class="json-str">"Add a contract test for the
+      /api/v1/orders endpoint"</span>
+  ]
+}</pre>
+    </div>
+    <div>
+      <h3>Field-by-field guide</h3>
+      <table style="font-size:12px; margin-bottom:14px">
+        <tr><th>Field</th><th>How to use it</th></tr>
+        <tr><td><code>category</code></td><td>One of 6 classes: <em>Automation Script Issue</em>, <em>Flaky Issue</em>, <em>Network / Infrastructure Issue</em>, <em>Product Issue</em>, <em>Test Data Issue</em>, <em>Unclassified</em></td></tr>
+        <tr><td><code>confidence</code></td><td>0–1 scale. Above 0.8 = high confidence, act on it. Below 0.6 = treat as a starting hint, verify manually.</td></tr>
+        <tr><td><code>reasoning</code></td><td>2–4 sentences citing specific evidence: error text, HTTP status codes, console errors, historical data. Read this to understand <em>why</em> the AI classified it this way.</td></tr>
+        <tr><td><code>suggestions</code></td><td>3 concrete, actionable steps. Ranked by priority — follow the first one first.</td></tr>
+      </table>
+      <h3>The 6 failure categories</h3>
+      <table style="font-size:12px">
+        <tr><th>Category</th><th>Signal pattern</th></tr>
+        <tr><td>🤖 Automation Script Issue</td><td>Selector broken, stale element, wrong locator</td></tr>
+        <tr><td>⚡ Flaky Issue</td><td>Historically flaky, timing/race condition</td></tr>
+        <tr><td>🌐 Network / Infrastructure</td><td>4xx/5xx, ECONNREFUSED, timeout</td></tr>
+        <tr><td>🐛 Product Issue</td><td>App JS error, correct assertion fails</td></tr>
+        <tr><td>📦 Test Data Issue</td><td>Missing/stale data, auth failure from data state</td></tr>
+        <tr><td>❓ Unclassified</td><td>Insufficient signal to determine cause</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 10 — Screenshot Attachment -->
+<div class="slide">
+  <div class="slide-tag">Screenshot Attachment</div>
+  <h2>Failure Screenshot</h2>
+  <p>A full-page screenshot of the browser at the <strong>exact moment the test failed</strong>. Captured automatically in <code>@AfterScenario</code> when the scenario result is <em>failed</em>.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>When is it captured?</h3>
+      <div class="pill"><div class="icon">❌</div><div><h4>On failure only</h4><p>Screenshots are not taken for passing tests — this keeps <code>allure-results/</code> small and avoids noise.</p></div></div>
+      <div class="pill"><div class="icon">📁</div><div><h4>Saved to two places</h4><p>1. <code>dist/screenshots/&lt;scenario-name&gt;-&lt;timestamp&gt;.png</code> for local inspection.<br>2. Embedded as a base64 attachment inside the Allure result JSON for the report.</p></div></div>
+      <div class="pill"><div class="icon">🤖</div><div><h4>Used by AI Analyzer</h4><p>The screenshot is sent to the AI as a vision image (Claude 3+, GPT-4o, Gemini 1.5+). The AI can describe what the browser showed — misaligned UI, error dialog, blank page — as part of its reasoning.</p></div></div>
+
+      <h3 style="margin-top:16px">How to find it in the report</h3>
+      <div style="display:flex; flex-direction:column; gap:7px; margin-top:6px">
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">1</span><span style="font-size:13px; color:var(--text-muted)">Open the failed scenario in Suites panel</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">2</span><span style="font-size:13px; color:var(--text-muted)">Scroll to the <strong>Attachments</strong> section at the bottom</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">3</span><span style="font-size:13px; color:var(--text-muted)">Click the <em>failure-screenshot</em> thumbnail</span></div>
+        <div style="display:flex; align-items:center; gap:10px"><span class="step-num">4</span><span style="font-size:13px; color:var(--text-muted)">Image opens full-screen — inspect the browser state at point of failure</span></div>
+      </div>
+    </div>
+    <div>
+      <h3>What to look for in the screenshot</h3>
+      <table style="font-size:12px; margin-bottom:14px">
+        <tr><th>What you see</th><th>Likely cause</th></tr>
+        <tr><td>Blank / white page</td><td>Navigation failed, route doesn't exist, session expired</td></tr>
+        <tr><td>Error dialog / toast</td><td>API returned an error, form validation triggered</td></tr>
+        <tr><td>Login page (unexpected)</td><td>Authentication failure, session timeout mid-test</td></tr>
+        <tr><td>Spinner still visible</td><td>Slow API (check <code>slowApiCalls</code> in observability JSON)</td></tr>
+        <tr><td>Correct page, wrong data</td><td>Test data issue or timing race — check <code>consoleErrors</code></td></tr>
+        <tr><td>Expected element missing</td><td>Selector broke, feature flag disabled, wrong environment</td></tr>
+      </table>
+      <div class="callout">
+        <p>💡 <strong>Correlation tip:</strong> Read the screenshot, then immediately open the observability JSON. If the screenshot shows a spinner → look for <code>slowApiCalls &gt; 0</code>. If it shows a blank page → look for <code>networkFailures &gt; 0</code> or <code>uncaughtExceptions &gt; 0</code>.</p>
+      </div>
+      <div class="callout warn" style="margin-top:8px">
+        <p>⚠️ Screenshots are only captured on <strong>HEADLESS=true</strong> runs. Local runs with <code>HEADLESS=false</code> also capture screenshots on failure; however never commit <code>HEADLESS=false</code> — it crashes CI.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 11 — Trend Chart -->
+<div class="slide">
+  <div class="slide-tag">Trend Chart</div>
+  <h2>Trend Chart — Tracking Pass/Fail Over Time</h2>
+  <p>The Trend chart shows a stacked bar for each CI run — passed (green) / failed (red) / broken (yellow) counts side-by-side. This is how you spot a degrading test suite before it becomes a crisis.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>How trend history is persisted (CI)</h3>
+      <div class="flow" style="flex-direction:column; align-items:flex-start; gap:8px">
+        <div class="flow-box b" style="width:100%">Run N: tests execute → <code>allure-results/</code> created</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:12px">↓ allure generate reads results + restores history from previous run</div>
+        <div class="flow-box g" style="width:100%">Run N: <code>allure-report/history/</code> written (contains N-1 bars)</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:12px">↓ CI uploads history as artifact <code>allure-history</code> (overwrite: true, 90 days retention)</div>
+        <div class="flow-box y" style="width:100%">Run N+1 starts → CI downloads <code>allure-history</code> artifact</div>
+        <div style="padding-left:16px; color:var(--text-muted); font-size:12px">↓ history placed at <code>allure-results/history/</code> before report generation</div>
+        <div class="flow-box" style="width:100%">Run N+1: Trend chart now shows N bars (all previous + current)</div>
+      </div>
+      <div class="callout info" style="margin-top:12px">
+        <p>📌 The CI step uses <code>dawidd6/action-download-artifact@v6</code> to restore and <code>actions/upload-artifact@v4</code> with <code>overwrite: true</code> to save. The first-ever run skips the restore step gracefully (<code>continue-on-error: true</code>) — the trend starts from run #2 onwards.</p>
+      </div>
+    </div>
+    <div>
+      <h3>How trend history works locally</h3>
+      <div class="card accent-t" style="margin-bottom:14px">
+        <h3>Local Trend — two-run process</h3>
+        <p>Run 1: <code>npm run gauge:saucedemo</code> → <code>npm run allure:generate</code> — creates <code>allure-report/history/</code></p>
+        <p style="margin-top:6px">Run 2: <code>npm run gauge:saucedemo</code> — <code>AllureSetup.restoreHistory()</code> in BeforeSuite copies <code>allure-report/history/</code> → <code>allure-results/history/</code></p>
+        <p style="margin-top:6px">Run 2: <code>npm run allure:generate</code> — Trend now shows 2 bars.</p>
+      </div>
+      <h3>Reading the Trend chart</h3>
+      <table style="font-size:12px">
+        <tr><th>Pattern</th><th>What it means</th></tr>
+        <tr><td>All bars 100% green</td><td>Suite is stable — good baseline</td></tr>
+        <tr><td>One red spike then recovers</td><td>Transient failure (infra / flaky) — check that run's Categories</td></tr>
+        <tr><td>Red growing over runs</td><td>Progressive regression — check what changed in the codebase</td></tr>
+        <tr><td>Alternating red/green</td><td>Flaky test — check historical data in AI analysis</td></tr>
+        <tr><td>Yellow (broken) bars</td><td>Unexpected exceptions — automation or infra problem</td></tr>
+      </table>
+      <div class="callout warn" style="margin-top:10px">
+        <p>⚠️ The Trend chart <strong>only works across runs</strong>, not within a single run. A fresh first run always shows a single bar with no history context.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 12 — Behaviors Panel -->
+<div class="slide">
+  <div class="slide-tag">Behaviors Panel</div>
+  <h2>Behaviors Panel — BDD Hierarchy View</h2>
+  <p>The Behaviors panel groups tests by <strong>Feature → Story → Test</strong>. In playgauge_framework this maps to Gauge spec path → spec name → scenario name.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>How Gauge tags become Behaviors</h3>
+      <table style="margin-bottom:14px">
+        <tr><th>Allure BDD concept</th><th>Maps to in playgauge_framework</th></tr>
+        <tr><td><strong>Feature</strong></td><td>Relative path of the spec file, e.g. <code>specs/saucedemo/login.md</code></td></tr>
+        <tr><td><strong>Suite</strong></td><td>Spec heading (the <code># Title</code> in the .md file)</td></tr>
+        <tr><td><strong>Story / Test</strong></td><td>Individual scenario name (the <code>## Scenario</code> in the .md file)</td></tr>
+        <tr><td><strong>Tags</strong></td><td>All Gauge spec-level + scenario-level tags — shown in the Labels widget</td></tr>
+      </table>
+      <h3>When to use Behaviors vs Suites</h3>
+      <div class="pill"><div class="icon">🌿</div><div><h4>Suites panel</h4><p>Best for triage — shows the exact file that failed, mirrors the repo structure, makes it easy to jump to the code.</p></div></div>
+      <div class="pill"><div class="icon">📖</div><div><h4>Behaviors panel</h4><p>Best for stakeholder reporting — groups tests by feature area (login, checkout, cart) regardless of which file they live in. Easier to read for non-engineers.</p></div></div>
+    </div>
+    <div>
+      <h3>Timeline Panel — at a glance</h3>
+      <p style="margin-bottom:10px">The Timeline panel shows a <strong>Gantt-style swimlane</strong> of when each test ran and how long it took.</p>
+      <div class="pill"><div class="icon">⏱️</div><div><h4>Duration outliers</h4><p>A scenario bar that is much longer than its neighbours is likely hitting a slow API or waiting for a timeout — check its observability JSON for <code>slowApiCalls</code>.</p></div></div>
+      <div class="pill"><div class="icon">🔀</div><div><h4>Parallelism check</h4><p>When running tests in parallel, the timeline shows overlapping bars — each thread on its own swim lane. playgauge_framework runs Gauge tests sequentially by default (one browser context per scenario).</p></div></div>
+      <div class="pill"><div class="icon">📐</div><div><h4>Total wall-clock time</h4><p>The rightmost bar end minus the leftmost bar start = total wall-clock time of the suite run. Compare across runs to detect performance regressions in the suite itself.</p></div></div>
+      <div class="callout info" style="margin-top:10px">
+        <p>📌 The Timeline is especially useful when you suspect a test <em>indirectly</em> breaks another by leaving the browser in a bad state. Sequential runs without proper cleanup show as one long unbroken bar chain.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 13 — Quick Triage Workflow -->
+<div class="slide">
+  <div class="slide-tag">Triage Workflow</div>
+  <h2>Quick Triage Workflow — Step by Step</h2>
+  <p>Use this checklist every time a CI run has failures. Takes 2–5 minutes per failed test.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>5-step failure triage</h3>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div class="card accent-t" style="display:flex; align-items:flex-start; gap:14px; padding:14px">
+          <span class="step-num" style="margin-top:2px">1</span>
+          <div>
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px">Overview — how many and which severity?</div>
+            <div style="font-size:12px; color:var(--text-muted)">Look at the doughnut chart. Count failures. Check if any are <span class="sev blocker" style="font-size:10px; padding:2px 8px">BLOCKER</span> or <span class="sev critical" style="font-size:10px; padding:2px 8px">CRITICAL</span> — fix those first.</div>
+          </div>
+        </div>
+        <div class="card accent-l" style="display:flex; align-items:flex-start; gap:14px; padding:14px">
+          <span class="step-num" style="margin-top:2px">2</span>
+          <div>
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px">Categories — what type of failure?</div>
+            <div style="font-size:12px; color:var(--text-muted)"><span class="cat defect" style="font-size:10px; padding:2px 8px">🐛 Product Defect</span> = app bug → raise a bug ticket. <span class="cat test" style="font-size:10px; padding:2px 8px">🔧 Test Issue</span> = fix the selector. <span class="cat infra" style="font-size:10px; padding:2px 8px">🌐 Infra</span> = check servers.</div>
+          </div>
+        </div>
+        <div class="card accent-b" style="display:flex; align-items:flex-start; gap:14px; padding:14px">
+          <span class="step-num" style="margin-top:2px">3</span>
+          <div>
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px">Suites → Test body — which step failed?</div>
+            <div style="font-size:12px; color:var(--text-muted)">Open the failed scenario. Go to <strong>Test body</strong> tab. The first red step pinpoints the exact action that threw the exception.</div>
+          </div>
+        </div>
+        <div class="card accent-o" style="display:flex; align-items:flex-start; gap:14px; padding:14px">
+          <span class="step-num" style="margin-top:2px">4</span>
+          <div>
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px">Screenshot — what did the browser show?</div>
+            <div style="font-size:12px; color:var(--text-muted)">Open the screenshot attachment. Blank page? Login screen? Spinner? Each visual maps to a different root cause (see Slide 10).</div>
+          </div>
+        </div>
+        <div class="card accent-g" style="display:flex; align-items:flex-start; gap:14px; padding:14px">
+          <span class="step-num" style="margin-top:2px">5</span>
+          <div>
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px">Observability + AI JSON — confirm and fix</div>
+            <div style="font-size:12px; color:var(--text-muted)">Open observability JSON → check <code>networkFailures</code>, <code>uncaughtExceptions</code>, <code>slowApiCalls</code>. Then open AI JSON → read <code>reasoning</code> and follow the first <code>suggestion</code>.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3>Signal → root cause cheat-sheet</h3>
+      <table style="font-size:12px; margin-bottom:14px">
+        <tr><th>Signal you see</th><th>Where to look first</th><th>Likely fix</th></tr>
+        <tr><td><code>networkFailures &gt; 0</code></td><td>Check <code>apiEdges</code> for the failing URL; check server logs</td><td>API or infra issue — not automation</td></tr>
+        <tr><td><code>uncaughtExceptions &gt; 0</code></td><td>Check browser console output; screenshot</td><td>JavaScript error in the app — product bug</td></tr>
+        <tr><td><code>slowApiCalls &gt; 0</code></td><td>Check <code>apiEdges</code> for slow URL + duration</td><td>Performance regression; increase threshold only if intended</td></tr>
+        <tr><td><code>consoleErrors &gt; 0</code></td><td>Check screenshot; is UI broken visually?</td><td>Front-end rendering issue — product bug</td></tr>
+        <tr><td>TimeoutError in step body</td><td>Is the selector valid? Did the page load?</td><td>Automation issue (selector) or slow page (infra)</td></tr>
+        <tr><td>AssertionError in step body</td><td>What was expected vs actual? Check screenshot</td><td>Product regression or wrong test data</td></tr>
+        <tr><td>Test alternates pass/fail</td><td>Check Trend chart for zigzag; check <code>ruleCategoryHint</code></td><td>Flaky test — add wait or fix race condition</td></tr>
+      </table>
+      <div class="callout">
+        <p>🎯 <strong>Goal:</strong> 80% of failures should be diagnosed in under 3 minutes using this workflow — without ever running the test locally or opening the app manually.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ SLIDE 14 — Panel Quick Reference -->
+<div class="slide">
+  <div class="slide-tag">Quick Reference</div>
+  <h2>Panel Quick Reference</h2>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>Every panel — one line summary</h3>
+      <table style="margin-bottom:16px">
+        <tr><th>Panel</th><th>One-line purpose</th><th>Written by</th></tr>
+        <tr><td>🏠 <strong>Overview</strong></td><td>Total counts, doughnut, mini trend</td><td>Allure (auto)</td></tr>
+        <tr><td>🌐 <strong>Environment</strong></td><td>Which env, URL, browser, AI provider</td><td><code>AllureSetup.writeEnvironment()</code></td></tr>
+        <tr><td>🖥️ <strong>Executors</strong></td><td>Local vs CI, build number, link to Actions run</td><td><code>AllureSetup.writeExecutor()</code></td></tr>
+        <tr><td>🏷️ <strong>Categories</strong></td><td>Failure type: Product / Test / Infra</td><td><code>AllureSetup.writeCategories()</code></td></tr>
+        <tr><td>🌿 <strong>Suites</strong></td><td>Tests by spec file (best for triage)</td><td>Allure (auto) + <code>SUITE</code> label</td></tr>
+        <tr><td>📖 <strong>Behaviors</strong></td><td>Tests by Feature/Story (BDD view)</td><td>Allure (auto) + <code>FEATURE</code> label</td></tr>
+        <tr><td>⏱️ <strong>Timeline</strong></td><td>Gantt chart of test execution order</td><td>Allure (auto)</td></tr>
+        <tr><td>📈 <strong>Trend</strong></td><td>Pass/fail bars across multiple runs</td><td>History artifact (CI) / <code>restoreHistory()</code> (local)</td></tr>
+      </table>
+      <h3>Every attachment — one line summary</h3>
+      <table>
+        <tr><th>Attachment</th><th>One-line purpose</th><th>When present</th></tr>
+        <tr><td>📊 <strong>observability-summary</strong></td><td>Browser telemetry: console, network, APIs</td><td>Every scenario</td></tr>
+        <tr><td>📸 <strong>failure-screenshot</strong></td><td>Browser state at point of failure</td><td>Failed scenarios only</td></tr>
+        <tr><td>🤖 <strong>ai-analysis</strong></td><td>AI root-cause diagnosis + suggestions</td><td>CI only, failed scenarios</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Severity labels quick lookup</h3>
+      <table style="margin-bottom:16px">
+        <tr><th>Gauge tag</th><th>Allure label</th><th>Action when failing</th></tr>
+        <tr><td><code>critical</code></td><td><span class="sev blocker" style="font-size:11px">● BLOCKER</span></td><td>Stop the release. Fix immediately.</td></tr>
+        <tr><td><code>high</code></td><td><span class="sev critical" style="font-size:11px">● CRITICAL</span></td><td>Fix before end of sprint.</td></tr>
+        <tr><td><code>medium</code></td><td><span class="sev normal" style="font-size:11px">● NORMAL</span></td><td>Schedule in next sprint.</td></tr>
+        <tr><td><code>low</code></td><td><span class="sev minor" style="font-size:11px">● MINOR</span></td><td>Fix when bandwidth allows.</td></tr>
+      </table>
+      <h3>Common "why is this empty?" answers</h3>
+      <table>
+        <tr><th>Empty panel</th><th>Reason</th></tr>
+        <tr><td>Categories</td><td>All tests passed — this is correct.</td></tr>
+        <tr><td>Environment</td><td><code>gauge</code> called directly without <code>PLAYGAUGE_ENV</code>. Use <code>npm run gauge:*</code>.</td></tr>
+        <tr><td>Trend</td><td>First ever run, or history artifact missing. Trend builds from run #2 onward.</td></tr>
+        <tr><td>AI attachment</td><td>Not a CI run, or <code>AI_API_KEY</code> not set, or test passed.</td></tr>
+        <tr><td>Screenshot</td><td>Test passed — screenshots only on failure.</td></tr>
+      </table>
+      <div class="callout" style="margin-top:12px">
+        <p>📖 For a full framework walkthrough (architecture, components, CI setup) open <strong>FRAMEWORK_WALKTHROUGH.html</strong> in your browser.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- ── Nav ── -->
+<div id="nav">
+  <button id="btn-prev" title="Previous (←)">&#8592;</button>
+  <span id="slide-counter">1 / 14</span>
+  <button id="btn-next" title="Next (→)">&#8594;</button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total  = slides.length;
+  let current  = 0;
+
+  const thumbsEl = document.getElementById('thumbs');
+  const thumbs   = slides.map((_, i) => {
+    const t = document.createElement('div');
+    t.className = 'thumb' + (i === 0 ? ' active' : '');
+    t.title     = `Slide ${i + 1}`;
+    t.addEventListener('click', () => goTo(i));
+    thumbsEl.appendChild(t);
+    return t;
+  });
+
+  function goTo(n) {
+    slides[current].classList.remove('active');
+    thumbs[current].classList.remove('active');
+    current = Math.max(0, Math.min(total - 1, n));
+    slides[current].classList.add('active');
+    thumbs[current].classList.add('active');
+    document.getElementById('slide-counter').textContent = `${current + 1} / ${total}`;
+    document.getElementById('progress').style.width = `${((current + 1) / total) * 100}%`;
+    slides[current].scrollTop = 0;
+  }
+
+  document.getElementById('btn-prev').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('btn-next').addEventListener('click', () => goTo(current + 1));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1);
+  });
+
+  goTo(0);
+</script>
+</body>
+</html>

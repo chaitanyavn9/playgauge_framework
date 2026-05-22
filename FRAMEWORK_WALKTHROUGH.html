@@ -120,6 +120,13 @@
   .allure-pill h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
   .allure-pill p { font-size: 12px; margin: 0; }
 
+  /* ── Severity badges ── */
+  .sev { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .sev.blocker  { background: rgba(248,113,113,.2);  color: var(--red);    border: 1px solid rgba(248,113,113,.35); }
+  .sev.critical { background: rgba(251,146,60,.2);   color: #fb923c;       border: 1px solid rgba(251,146,60,.35); }
+  .sev.normal   { background: rgba(96,165,250,.2);   color: var(--blue);   border: 1px solid rgba(96,165,250,.35); }
+  .sev.minor    { background: rgba(74,222,128,.2);   color: var(--green);  border: 1px solid rgba(74,222,128,.35); }
+
   /* ── Responsive ── */
   @media (max-width: 900px) {
     .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
@@ -317,18 +324,25 @@
         <tr><td><span class="badge orange">login</span></td><td>Module</td><td>Run specific feature</td></tr>
         <tr><td><span class="badge mod">mymodule</span></td><td>Custom</td><td>Your team's tag</td></tr>
       </table>
+      <h3>Priority / severity tags → Allure</h3>
+      <table>
+        <tr><th>Gauge tag</th><th>Allure Severity</th><th>When to use</th></tr>
+        <tr><td><code>critical</code></td><td><span class="sev blocker">● BLOCKER</span></td><td>Blocks the release — login, checkout, core flow</td></tr>
+        <tr><td><code>high</code></td><td><span class="sev critical">● CRITICAL</span></td><td>Major functional impact — key negative paths</td></tr>
+        <tr><td><code>medium</code></td><td><span class="sev normal">● NORMAL</span></td><td>Moderate impact — form validation, sorting</td></tr>
+        <tr><td><code>low</code></td><td><span class="sev minor">● MINOR</span></td><td>Low impact — cosmetic, edge cases</td></tr>
+      </table>
       <h3>Running by tag</h3>
-      <pre><span class="cmt"># Smoke only (fast, pre-merge)</span>
-gauge run <span class="str">--tags smoke</span> specs/
+      <pre><span class="cmt"># Always use npm scripts — they set PLAYGAUGE_ENV</span>
+npm run gauge:saucedemo    <span class="cmt"># GAUGE_ENV + PLAYGAUGE_ENV=saucedemo</span>
+npm run gauge:smoke        <span class="cmt"># --tags smoke</span>
+npm run gauge:regression   <span class="cmt"># --tags regression</span>
 
-<span class="cmt"># Full regression (nightly CI)</span>
-gauge run <span class="str">--tags regression</span> specs/
+<span class="cmt"># Custom tag filter</span>
+gauge run <span class="str">--tags "smoke &amp; saucedemo"</span> specs/
 
-<span class="cmt"># Specific module</span>
-gauge run <span class="str">--tags login</span> specs/
-
-<span class="cmt"># Combined — smoke AND saucedemo</span>
-gauge run <span class="str">--tags "smoke &amp; saucedemo"</span> specs/</pre>
+<span class="cmt">⚠️ Never call gauge directly without PLAYGAUGE_ENV —</span>
+<span class="cmt">   EnvLoader will fall back to the default env file.</span></pre>
     </div>
   </div>
 </div>
@@ -522,9 +536,10 @@ setup.bat <span class="str">local</span>            <span class="cmt"># Windows<
       <div class="card accent-b">
         <h3>✅ Local run output</h3>
         <ul class="check-list" style="font-size:13px">
-          <li>Browser opens visually (headless=false)</li>
+          <li>Tests run headless by default (HEADLESS=true). Set HEADLESS=false <em>locally only</em> — never commit it (CI has no display server)</li>
           <li>Gauge HTML report: <code>reports/html/index.html</code></li>
-          <li>Allure results: run <code>npm run allure:open</code></li>
+          <li>Allure results: run <code>npm run allure:generate &amp;&amp; npm run allure:open</code></li>
+          <li>Allure panels: Environment ✓ · Executors ✓ · Categories (on failure) ✓ · Trend (after 2+ runs) ✓</li>
           <li>Screenshots on failure: <code>dist/screenshots/</code></li>
           <li>Logs: <code>dist/logs/framework.log</code></li>
         </ul>
@@ -548,10 +563,14 @@ setup.bat <span class="str">testrunner</span>        <span class="cmt"># Windows
       <div class="card accent-r">
         <h3>⚙️ Required CI Secrets</h3>
         <table style="font-size:12px">
-          <tr><td><code>ANTHROPIC_API_KEY</code></td><td>For AI analysis</td></tr>
-          <tr><td><code>POSTGRES_USER</code></td><td>DB credentials</td></tr>
-          <tr><td><code>POSTGRES_PASSWORD</code></td><td>DB credentials</td></tr>
-          <tr><td><code>GRAFANA_URL</code></td><td>Dashboard URL</td></tr>
+          <tr><td><code>AI_PROVIDER</code></td><td><code>anthropic</code> / <code>openai</code> / <code>gemini</code></td></tr>
+          <tr><td><code>AI_API_KEY</code></td><td>API key for chosen provider</td></tr>
+          <tr><td><code>DB_HOST</code></td><td>PostgreSQL host</td></tr>
+          <tr><td><code>DB_USER</code></td><td>DB username</td></tr>
+          <tr><td><code>DB_PASSWORD</code></td><td>DB password</td></tr>
+          <tr><td><code>STAGING_BASE_URL</code></td><td>App URL for staging/prod</td></tr>
+          <tr><td><code>STAGING_USERNAME</code></td><td>Login for staging/prod</td></tr>
+          <tr><td><code>STAGING_PASSWORD</code></td><td>Password for staging/prod</td></tr>
         </table>
       </div>
     </div>
@@ -606,41 +625,45 @@ npm run allure:open               <span class="cmt"># localhost:5050</span></pre
     <div>
       <div class="allure-pill">
         <div class="icon">📊</div>
-        <div><h4>Overview / Summary</h4><p>Total pass/fail/skip counts, duration, environment info. The first page you share with management.</p></div>
+        <div><h4>Overview / Summary</h4><p>Total pass/fail/skip counts, duration, doughnut chart, mini Trend bar. The first page you share with management.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🌐</div>
+        <div><h4>Environment panel</h4><p>Shows ENV name, BASE_URL, Browser, Headless, AI Provider, DB status, Run ID. Written by <code>AllureSetup.writeEnvironment()</code> in BeforeSuite. Values always reflect the actual env that ran.</p></div>
+      </div>
+      <div class="allure-pill">
+        <div class="icon">🖥️</div>
+        <div><h4>Executors panel</h4><p>Local run → timestamp. CI run → GitHub Actions build number + clickable link to the Actions run. Written by <code>AllureSetup.writeExecutor()</code>.</p></div>
       </div>
       <div class="allure-pill">
         <div class="icon">🏷️</div>
-        <div><h4>Categories</h4><p>Failures grouped by type (product defects, test defects, broken tests). Map directly to AI analysis categories.</p></div>
+        <div><h4>Categories panel</h4><p>Failures grouped: 🐛 Product Defects (assertion errors) · 🔧 Test Issues (timeouts, selector errors) · 🌐 Infrastructure Issues (ECONNREFUSED, net::ERR). <strong>Empty = all tests passed</strong> — this is correct.</p></div>
       </div>
       <div class="allure-pill">
         <div class="icon">🔥</div>
-        <div><h4>Suites</h4><p>Tests organised by spec file → scenario. Drill into any failed scenario to see its steps, screenshots, and observability data.</p></div>
-      </div>
-      <div class="allure-pill">
-        <div class="icon">📈</div>
-        <div><h4>Trends (Retries + Flakiness)</h4><p>Shows which tests consistently pass, fail, or are flaky over the last N runs. Only meaningful after 3+ CI runs.</p></div>
+        <div><h4>Suites</h4><p>Tests by spec file → scenario. Drill into any failed test to read the step trace, labels (Severity, Suite, Tags), screenshot, and observability JSON.</p></div>
       </div>
       <div class="allure-pill">
         <div class="icon">🗂️</div>
-        <div><h4>Behaviours (BDD view)</h4><p>Tests grouped by Feature → Story → Scenario — the BDD hierarchy from your Gauge spec tags.</p></div>
+        <div><h4>Behaviors (BDD view)</h4><p>Tests grouped by Feature (spec path) → Story (spec heading) → Scenario. Best for stakeholder reporting — organises by feature area, not file.</p></div>
       </div>
     </div>
     <div>
       <div class="allure-pill">
+        <div class="icon">📈</div>
+        <div><h4>Trend chart</h4><p>Stacked bars — one per CI run — showing pass/fail/broken counts over time. Populated by history artifacts saved between runs. Locally: requires 2+ runs + <code>allure:generate</code>. In CI: <code>dawidd6/action-download-artifact</code> restores history before each run.</p></div>
+      </div>
+      <div class="allure-pill">
         <div class="icon">⏱️</div>
-        <div><h4>Timeline</h4><p>Visual swimlane showing when each test ran and how long it took. Useful for parallelisation planning.</p></div>
+        <div><h4>Timeline</h4><p>Gantt-style swimlane showing when each test ran. Outlier-long bars = slow API or timeout. Useful for parallelisation planning.</p></div>
       </div>
       <div class="allure-pill">
-        <div class="icon">🔭</div>
-        <div><h4>Observability Attachments (custom)</h4><p>Every scenario has: severity score, console error list, network failure list, slow API calls, API dependency edges. Attached automatically by ObservabilityCollector.</p></div>
+        <div class="icon">🏷️</div>
+        <div><h4>Severity labels (per scenario)</h4><p>BLOCKER / CRITICAL / NORMAL / MINOR — driven by Gauge tags <code>critical</code> / <code>high</code> / <code>medium</code> / <code>low</code>. Shown in the Labels widget of each test detail pane. Use for triage priority.</p></div>
       </div>
       <div class="allure-pill">
-        <div class="icon">📸</div>
-        <div><h4>Screenshots</h4><p>Auto-captured on failure. Attached to the Allure scenario. Scroll to the bottom of a failed test to see the browser state at point of failure.</p></div>
-      </div>
-      <div class="allure-pill">
-        <div class="icon">🤖</div>
-        <div><h4>AI Analysis JSON (CI only)</h4><p>The AI Analyser output is attached to each failed scenario: category, confidence, root cause, suggested fix. Also generates a standalone HTML summary report.</p></div>
+        <div class="icon">📎</div>
+        <div><h4>Attachments (per scenario)</h4><p><strong>observability-summary</strong> JSON (every test) · <strong>failure-screenshot</strong> PNG (failed only) · <strong>ai-analysis</strong> JSON (CI, failed only). Open <strong>ALLURE_REPORT_GUIDE.html</strong> for a full field-by-field explanation of each attachment.</p></div>
       </div>
     </div>
   </div>
@@ -871,10 +894,11 @@ http://&lt;server-ip&gt;:3001
         <li>Keep pages as thin orchestrators — no raw locators in page files</li>
         <li>Put all UI interactions inside a Component extending BaseComponent</li>
         <li>Prefer <code>{ automationId }</code> when the app has <code>data-automation-id</code> attributes</li>
-        <li>Tag every spec file AND every scenario</li>
+        <li>Tag every spec file AND every scenario — add a priority tag (<code>critical</code> / <code>high</code> / <code>medium</code> / <code>low</code>) to every scenario</li>
         <li>Put credentials only in env .properties files</li>
+        <li>Use <code>npm run gauge:*</code> scripts — they set <code>PLAYGAUGE_ENV</code> automatically</li>
         <li>Run smoke tests before raising a PR</li>
-        <li>Keep <code>DB_ENABLED=false</code> on local environments</li>
+        <li>Keep <code>DB_ENABLED=false</code> and <code>HEADLESS=true</code> in all committed env files</li>
         <li>Read ObservabilityCollector telemetry when diagnosing flaky tests</li>
         <li>Add a new component type when a new UI pattern appears</li>
       </ul>
@@ -890,7 +914,8 @@ http://&lt;server-ip&gt;:3001
         <li>Don't install PostgreSQL or Grafana locally</li>
         <li>Don't run <code>DB_ENABLED=true</code> without running db:migrate first</li>
         <li>Don't hardcode test data inside step implementations</li>
-        <li>Don't modify ObservabilityCollector without understanding the schema</li>
+        <li>Don't commit <code>HEADLESS=false</code> — it crashes GitHub Actions CI ("Missing X server")</li>
+        <li>Don't call <code>gauge</code> directly without <code>PLAYGAUGE_ENV</code> — use <code>npm run gauge:*</code></li>
         <li>Don't run full regression locally for a quick sanity check — use --tags smoke</li>
       </ul>
     </div>
@@ -941,8 +966,61 @@ npm run ai:analyze</pre>
       </ul>
       <div class="card accent-l" style="margin-top:16px">
         <h3>📖 Further reading</h3>
-        <p><code>CLAUDE_CODE_SETUP.md</code> — How to use Claude Code CLI with this project for AI-assisted test development</p>
-        <p style="margin-top:4px"><code>README.md</code> — Full setup, configuration and troubleshooting reference</p>
+        <p><code>ALLURE_REPORT_GUIDE.html</code> — Complete guide to every Allure panel, attachment, JSON field, and triage workflow</p>
+        <p style="margin-top:4px"><code>BEST_PRACTICES.md</code> — Coding patterns, hooks getter-method rules, severity tagging guide</p>
+        <p style="margin-top:4px"><code>README.md</code> — Full setup, PLAYGAUGE_ENV explanation, CI secrets, and troubleshooting reference</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ SLIDE 18 -->
+<div class="slide">
+  <div class="slide-tag">Environment Loading</div>
+  <h2>PLAYGAUGE_ENV &amp; EnvLoader</h2>
+  <p>How the framework decides <em>which</em> <code>.properties</code> file to read — and why a custom variable was needed.</p>
+  <div class="grid-2" style="margin-top:8px">
+    <div>
+      <h3>The problem with GAUGE_ENV</h3>
+      <div class="card accent-r" style="margin-bottom:14px">
+        <h3>⚠️ Gauge overrides GAUGE_ENV internally</h3>
+        <p>When <code>gauge run --env saucedemo</code> spawns the gauge-ts subprocess, Gauge sets <code>GAUGE_ENV=default</code> inside that process — regardless of what you passed on the command line. Any code reading <code>process.env.GAUGE_ENV</code> inside a step or hook always sees <code>'default'</code>.</p>
+        <p style="margin-top:6px">This caused <code>EnvLoader</code> to silently read <code>env/default/default.properties</code> instead of <code>env/saucedemo/default.properties</code>, making the Environment panel show wrong values and HEADLESS settings being ignored.</p>
+      </div>
+      <h3>The solution — PLAYGAUGE_ENV</h3>
+      <pre><span class="cmt"># package.json npm scripts</span>
+<span class="str">"gauge:saucedemo"</span>: <span class="str">"GAUGE_ENV=saucedemo PLAYGAUGE_ENV=saucedemo gauge run specs/saucedemo/"</span>
+<span class="str">"gauge:orangehrm"</span>: <span class="str">"GAUGE_ENV=orangehrm PLAYGAUGE_ENV=orangehrm gauge run specs/orangehrm/"</span>
+<span class="str">"gauge:smoke"</span>:     <span class="str">"GAUGE_ENV=dev PLAYGAUGE_ENV=dev gauge run --tags smoke specs/"</span>
+
+<span class="cmt">// EnvLoader.ts</span>
+<span class="kw">const</span> activeEnv = process.env.<span class="fn">PLAYGAUGE_ENV</span>
+                ?? process.env.<span class="fn">GAUGE_ENV</span>
+                ?? <span class="str">'default'</span>;</pre>
+      <p><code>PLAYGAUGE_ENV</code> is set by the npm script <strong>before</strong> gauge starts — it survives into the subprocess unchanged because Gauge only overrides <code>GAUGE_ENV</code>, not unknown variables.</p>
+    </div>
+    <div>
+      <h3>cfg() vs secret() — two resolution strategies</h3>
+      <p>EnvLoader uses two helpers to handle the tension between env-specific config and CI-injected secrets:</p>
+      <table style="margin-bottom:14px">
+        <tr><th>Strategy</th><th>Rule</th><th>Used for</th></tr>
+        <tr><td><code>cfg()</code></td><td><strong>File wins</strong></td><td>HEADLESS, BASE_URL, BROWSER, page URLs, observability settings</td></tr>
+        <tr><td><code>secret()</code></td><td><strong>process.env wins</strong> (if non-empty)</td><td>USERNAME, PASSWORD, DB_HOST, DB_PASSWORD, DB_ENABLED, AI keys</td></tr>
+      </table>
+      <pre><span class="cmt">// cfg() — file-wins: prevents gauge default-env injection</span>
+<span class="kw">function</span> <span class="fn">cfg</span>(merged, key, fallback = <span class="str">''</span>): <span class="typ">string</span> {
+  <span class="kw">return</span> merged[key] ?? fallback;
+}
+
+<span class="cmt">// secret() — env-wins: CI secrets always override the file</span>
+<span class="kw">function</span> <span class="fn">secret</span>(merged, key, fallback = <span class="str">''</span>): <span class="typ">string</span> {
+  <span class="kw">const</span> envVal = process.env[key];
+  <span class="kw">if</span> (envVal !== <span class="kw">undefined</span> && envVal !== <span class="str">''</span>) <span class="kw">return</span> envVal;
+  <span class="kw">return</span> merged[key] ?? fallback;
+}</pre>
+      <div class="card accent-g" style="margin-top:12px">
+        <h3>✅ HEADLESS in CI</h3>
+        <p>GitHub Actions runners have no display server. <code>HEADLESS=false</code> crashes with "Missing X server". Always keep <code>HEADLESS=true</code> in committed env files. Only flip to <code>false</code> locally for visual debugging — never commit it.</p>
       </div>
     </div>
   </div>
@@ -953,7 +1031,7 @@ npm run ai:analyze</pre>
 <!-- ── Nav bar ── -->
 <div id="nav">
   <button id="btn-prev" title="Previous (←)">&#8592;</button>
-  <span id="slide-counter">1 / 17</span>
+  <span id="slide-counter">1 / 18</span>
   <button id="btn-next" title="Next (→)">&#8594;</button>
 </div>
 

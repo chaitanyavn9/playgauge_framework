@@ -37,9 +37,9 @@ Author: V N Chaitanya — Senior QA Automation Engineer
 - Writes human-readable BDD scenarios in **Gauge Markdown** (`.md` files) that non-technical stakeholders can read and review
 - Executes those scenarios using **Playwright** for fast, reliable cross-browser automation
 - Captures real-time **observability telemetry** — console errors, network failures, slow APIs, uncaught exceptions — automatically on every test run, with zero extra code in your steps
-- Attaches rich **Allure reports** with observability data embedded into every scenario
+- Attaches rich **Allure reports** with observability data, priority/severity labels, environment metadata, failure categories, and trend history embedded into every scenario
 - Optionally persists all telemetry to **PostgreSQL** for trend analysis and flaky test detection (CI only)
-- Runs **AI-powered failure classification** via Claude (Anthropic) to categorise failures, suggest root causes, and generate human-readable analysis (CI only)
+- Runs **AI-powered failure classification** via any AI provider (Claude, GPT-4o, Gemini, Groq, Ollama…) to categorise failures, suggest root causes, and generate human-readable analysis (CI only)
 - Feeds metrics into **Grafana** dashboards for team-wide visibility (CI only)
 
 ---
@@ -52,7 +52,7 @@ Author: V N Chaitanya — Senior QA Automation Engineer
 | Browser Automation | Playwright | Cross-browser, fast, reliable |
 | Language | TypeScript 5 | Type-safe test code |
 | Design Pattern | Component Model | Reusable UI components, thin pages |
-| Reporting | Allure | Rich HTML test reports |
+| Reporting | Allure | Rich HTML test reports with full panel support |
 | Observability | Custom (Playwright events) | Auto-captures telemetry per scenario |
 | Database | PostgreSQL 15 | Telemetry storage — CI only |
 | AI Analysis | Any AI provider (Claude, GPT-4o, Gemini, Groq, Ollama…) | Failure classification — CI only |
@@ -81,7 +81,7 @@ Playwright Locator               <- actual browser interaction
      v
 ObservabilityCollector           <- auto-captures console/network/API events
      | reports to
-     |-- Allure Report           <- always (local + CI)
+     |-- Allure Report           <- always (local + CI), full panels populated
      |-- PostgreSQL              <- CI only (DB_ENABLED=true)
      +-- AI Failure Analyser     <- CI only
 ```
@@ -95,11 +95,11 @@ playgauge_framework/
 |
 |-- env/                                 # Gauge environment configs
 |   |-- default/default.properties       # Base defaults (DB off, Grafana off)
-|   |-- dev/default.properties           # Local dev (headless=false)
+|   |-- dev/default.properties           # Local dev
 |   |-- staging/default.properties       # CI staging (headless=true, DB on)
 |   |-- prod/default.properties          # CI prod (headless=true, DB on)
-|   |-- saucedemo/default.properties     # SauceDemo demo (local)
-|   +-- orangehrm/default.properties     # OrangeHRM demo (local)
+|   |-- saucedemo/default.properties     # SauceDemo demo (headless=true)
+|   +-- orangehrm/default.properties     # OrangeHRM demo
 |
 |-- specs/                               # WRITE YOUR BDD SCENARIOS HERE
 |   |-- saucedemo/
@@ -124,11 +124,13 @@ playgauge_framework/
 |   |   +-- orangehrm/                   # OrangeLoginPage, OrangeDashboardPage
 |   |
 |   |-- step-implementations/            # WIRE STEPS TO PAGES HERE
-|   |   |-- hooks.ts                     # BeforeScenario/AfterScenario lifecycle
+|   |   |-- hooks.ts                     # BeforeSuite/BeforeScenario/AfterScenario lifecycle
 |   |   |-- saucedemo/saucedemo.steps.ts
 |   |   +-- orangehrm/orangehrm.steps.ts
 |   |
 |   |-- observability/                   # Auto-telemetry (no editing needed)
+|   |   |-- AllureSetup.ts               # One-time Allure metadata writer (BeforeSuite)
+|   |   +-- AllureObservabilityReporter.ts  # Per-scenario Allure attachment writer
 |   |-- db/                              # DB layer — CI only
 |   |-- ai-analyzer/                     # AI analysis — CI only
 |   +-- utils/                           # EnvLoader, Logger
@@ -189,7 +191,7 @@ gauge install allure
 ### Verify local setup
 
 ```bash
-# SauceDemo smoke tests (browser opens visually)
+# SauceDemo smoke tests
 npm run gauge:saucedemo
 
 # Standalone Playwright (no Gauge required)
@@ -198,9 +200,10 @@ npx playwright test playwright-tests/saucedemo/
 
 ### What you get locally
 
-- Browser opens and runs tests visually (headless=false for saucedemo/orangehrm envs)
+- Tests run headless by default (`HEADLESS=true`). Set `HEADLESS=false` in the env file **only** for local visual debugging — never commit it
 - Gauge HTML report at `reports/html/index.html`
-- Allure results in `allure-results/` — run `npm run allure:open` to view at localhost:5050
+- Allure results in `allure-results/` — run `npm run allure:generate && npm run allure:open` to view at localhost:5050
+- Allure report includes: Environment panel, Severity labels, Trend history (after 2+ runs), Categories (on failure)
 - Screenshots saved on failure in `dist/screenshots/`
 - Winston log at `dist/logs/framework.log`
 - No DB writes, no Grafana, no external service dependencies
@@ -228,11 +231,17 @@ The script installs: Node.js, Playwright, Gauge, PostgreSQL, creates the `playga
 
 | Secret | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key for AI Failure Analysis |
-| `POSTGRES_HOST` | PostgreSQL host (localhost on self-hosted runner) |
-| `POSTGRES_USER` | DB username |
-| `POSTGRES_PASSWORD` | DB password |
-| `GRAFANA_URL` | Grafana base URL |
+| `AI_PROVIDER` | AI provider: `anthropic`, `openai`, `gemini`, or `openai-compatible` |
+| `AI_API_KEY` | API key for the chosen AI provider |
+| `DB_HOST` | PostgreSQL host (use `localhost` for GitHub Actions service containers) |
+| `DB_USER` | DB username |
+| `DB_PASSWORD` | DB password |
+| `STAGING_BASE_URL` | Base URL for staging / dev / prod environments |
+| `STAGING_USERNAME` | Login username for staging / dev / prod |
+| `STAGING_PASSWORD` | Login password for staging / dev / prod |
+| `GRAFANA_URL` | Grafana base URL (optional) |
+
+> **Note:** `GAUGE_ENV` in CI is always set to the `environment` workflow input (default `saucedemo`). The CI also sets `PLAYGAUGE_ENV` to the same value so `EnvLoader` picks up the correct `.properties` file — see [Environment Configuration Reference](#14-environment-configuration-reference).
 
 ### Activate DB for a custom environment
 
@@ -241,16 +250,15 @@ In `env/<envname>/default.properties`:
 ```properties
 DB_ENABLED      = true
 GRAFANA_ENABLED = true
-DB_HOST         = ${POSTGRES_HOST}
-DB_USER         = ${POSTGRES_USER}
-DB_PASSWORD     = ${POSTGRES_PASSWORD}
 ```
+
+DB credentials (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, etc.) are injected as CI secrets and override the file via `EnvLoader`'s `secret()` resolver.
 
 ---
 
 ## 7. Running Tests — Tag-Based Execution
 
-Every spec file and scenario should be tagged. Tags enable selective execution.
+Every spec file and scenario should be tagged. Tags drive selective execution and appear in Allure as labels.
 
 ### Tagging strategy
 
@@ -259,7 +267,7 @@ Every spec file and scenario should be tagged. Tags enable selective execution.
 Tags: login, regression, saucedemo      <- spec-level tags (apply to all scenarios)
 
 ## Successful login
-Tags: smoke                             <- scenario-level tag
+Tags: smoke, critical                   <- scenario-level: execution + severity
 ```
 
 ### Available tags
@@ -268,36 +276,38 @@ Tags: smoke                             <- scenario-level tag
 |---|---|---|
 | `smoke` | Scenario | Critical path tests only |
 | `regression` | Scenario | Full regression suite |
+| `critical` | Scenario | Blocker-level priority → Allure Severity: BLOCKER |
+| `high` | Scenario | High priority → Allure Severity: CRITICAL |
+| `medium` | Scenario | Medium priority → Allure Severity: NORMAL |
+| `low` | Scenario | Low priority → Allure Severity: MINOR |
 | `saucedemo` | Spec | All SauceDemo tests |
 | `orangehrm` | Spec | All OrangeHRM tests |
 | `login` | Spec | All login scenarios |
 | `dashboard` | Spec | All dashboard scenarios |
 
+> Severity tags (`critical`, `high`, `medium`, `low`) are purely informational — they never filter test execution. They appear in the Allure Severity column, making it easy to triage which failures matter most.
+
 ### Execution commands
 
 ```bash
 # Smoke only
-gauge run --tags smoke specs/
+npm run gauge:smoke
 
 # Full regression
-gauge run --tags regression specs/
+npm run gauge:regression
 
-# Single application
-gauge run --env saucedemo specs/saucedemo/
-gauge run --env orangehrm specs/orangehrm/
+# Single application (sets PLAYGAUGE_ENV automatically)
+npm run gauge:saucedemo
+npm run gauge:orangehrm
 
-# Smoke for one application
-gauge run --env saucedemo --tags "smoke & saucedemo" specs/
+# Custom tag filter
+gauge run --tags "smoke & saucedemo" specs/
 
 # Specific spec file
 gauge run specs/saucedemo/login.md
-
-# Using npm scripts
-npm run gauge:smoke
-npm run gauge:regression
-npm run gauge:saucedemo
-npm run gauge:orangehrm
 ```
+
+> **Important:** Always use `npm run gauge:*` scripts rather than calling `gauge` directly. The npm scripts set both `GAUGE_ENV` and `PLAYGAUGE_ENV` so `EnvLoader` picks up the correct environment file. Calling `gauge` directly without `PLAYGAUGE_ENV` causes the default environment to be loaded.
 
 ### Adding a new module tag
 
@@ -332,7 +342,7 @@ Add to or create `specs/<module>/myfeature.md`:
 Tags: password-reset, regression
 
 ## User can reset password via email
-Tags: smoke
+Tags: smoke, high
 
 * Open the login page
 * Click "Forgot Password" link
@@ -464,10 +474,32 @@ npm run allure:generate   # generates allure-report/ folder
 npm run allure:open       # serves at http://localhost:5050
 ```
 
+### Allure report panels
+
+The framework populates all Allure panels automatically:
+
+| Panel | What you see | How it's populated |
+|---|---|---|
+| **Overview** | Pass/fail/skip counts, duration | Allure's default aggregation |
+| **Environment** | ENV name, BASE_URL, Browser, Headless, AI Provider, DB status | `AllureSetup.writeEnvironment()` in BeforeSuite |
+| **Categories** | Failures grouped: Product Defects / Test Issues / Infrastructure Issues | `AllureSetup.writeCategories()` — only populated when tests fail |
+| **Executors** | Local or GitHub Actions run details with build link | `AllureSetup.writeExecutor()` in BeforeSuite |
+| **Trend** | Pass/fail trend across runs | History carried between CI runs via GitHub Actions artifacts; local history from `allure-report/history/` |
+| **Suites** | Tests by spec file → scenario | Allure's default grouping |
+| **Severity** | Per-scenario priority badge (BLOCKER/CRITICAL/NORMAL/MINOR) | Gauge tags `critical`/`high`/`medium`/`low` mapped in `AfterScenario` |
+
 ### CI/CD Allure report
 
-Published to GitHub Pages after every pipeline run.  
-URL: `https://chaitanyavn9.github.io/playgauge_framework/`
+Published to GitHub Pages after every pipeline run on `main`.  
+URL: `https://chaitanyavn9.github.io/playgauge_framework/reports/<run_id>`
+
+The CI pipeline:
+1. **Restores** Allure history from the previous run (artifact `allure-history`) — this is what builds the Trend chart
+2. Runs tests → generates `allure-results/` JSON
+3. Runs AI Analyzer (adds analysis to results)
+4. Generates the HTML report with `allure generate`
+5. **Saves** the new `allure-report/history/` as artifact `allure-history` for the next run
+6. Publishes the report to GitHub Pages
 
 ### Sharing reports
 
@@ -507,7 +539,7 @@ The analyzer builds a 7-section prompt for every failure:
 | 7 | Classification Task | 6-category rubric + required JSON response format |
 
 > **Key improvement:** The error message and stack trace (Section 2) come directly from
-> Gauge's `ExecutionContext.currentScenario.failedStep` in the `@AfterScenario` hook.
+> Gauge's `ExecutionContext` in the `@AfterScenario` hook.
 > This is the *exact* Playwright exception that caused the test to fail — not guessed
 > from a DataStore field that was never populated. The AI sees the real root cause first.
 
@@ -526,13 +558,13 @@ Each result includes a confidence score (0–1), a 2–4 sentence reasoning citi
 
 ### Configuring the AI provider
 
-Set these in your `.env` file or CI secrets:
+Set these in your CI secrets or locally in a `.env` file (not committed):
 
 ```properties
 # Choose your provider
 AI_PROVIDER  = anthropic          # anthropic | openai | gemini | openai-compatible
 
-# API key (or ANTHROPIC_API_KEY for backwards compatibility)
+# API key for the chosen provider
 AI_API_KEY   = sk-ant-...
 
 # Optional — uses provider default if omitted
@@ -563,20 +595,46 @@ Available dashboards:
 
 ## 14. Environment Configuration Reference
 
+### Property keys
+
 | Property | Default | Description |
 |---|---|---|
 | `BASE_URL` | https://example.com | App URL |
-| `HEADLESS` | true | Run headless |
+| `HEADLESS` | true | Run headless. **Must be `true` in CI** (no display server on GitHub Actions). Only set `false` locally for visual debugging — never commit it |
 | `BROWSER` | chromium | chromium / firefox / webkit |
 | `OBSERVABILITY_ENABLED` | true | Auto-capture telemetry |
+| `OBSERVABILITY_ATTACH_ALLURE` | true | Attach observability summary to Allure after each scenario |
 | `SLOW_API_THRESHOLD_MS` | 1500 | Flag APIs slower than this |
 | `DB_ENABLED` | false | Enable PostgreSQL (CI only) |
 | `GRAFANA_ENABLED` | false | Enable Grafana (CI only) |
 | `ALLURE_RESULTS_DIR` | allure-results | Allure JSON output folder |
-| `AI_PROVIDER` | anthropic | anthropic / openai / gemini / openai-compatible |
-| `AI_API_KEY` | _(required in CI)_ | API key for chosen provider |
+| `AI_PROVIDER` | openai | anthropic / openai / gemini / openai-compatible |
+| `AI_API_KEY` | _(CI secret)_ | API key for chosen provider |
 | `AI_MODEL` | _(provider default)_ | Model identifier — optional |
 | `AI_BASE_URL` | _(required for openai-compatible)_ | Base URL for Groq / Ollama / Together etc. |
+
+### PLAYGAUGE_ENV vs GAUGE_ENV
+
+`PLAYGAUGE_ENV` is a custom variable added to every `npm run gauge:*` script alongside `GAUGE_ENV`. It exists because **Gauge overrides `GAUGE_ENV` to `'default'` inside its own subprocess** — making it unreliable for reading the correct environment file.
+
+`EnvLoader` always uses `PLAYGAUGE_ENV` (never `GAUGE_ENV`) to locate the right `env/<name>/default.properties` file. If `PLAYGAUGE_ENV` is not set, it falls back to `GAUGE_ENV` and then `'default'`.
+
+```bash
+# ✅ Correct — both vars set, EnvLoader reads saucedemo env
+npm run gauge:saucedemo     # internally: GAUGE_ENV=saucedemo PLAYGAUGE_ENV=saucedemo gauge run ...
+
+# ⚠️ Wrong — PLAYGAUGE_ENV not set, EnvLoader reads default env
+gauge run --env saucedemo specs/saucedemo/
+```
+
+### EnvLoader resolution strategy
+
+`EnvLoader` uses two resolution strategies to handle the tension between env-specific config and CI-injected secrets:
+
+| Strategy | Used for | Who wins |
+|---|---|---|
+| `cfg()` | `HEADLESS`, `BASE_URL`, `BROWSER`, all page URLs, all observability settings | **File wins** — prevents Gauge's default-env injection from clobbering env-specific settings |
+| `secret()` | `USERNAME`, `PASSWORD`, `DB_HOST`, `DB_PASSWORD`, `DB_ENABLED`, AI keys | **Non-empty `process.env` wins** — CI secrets always override the file |
 
 ---
 
@@ -589,9 +647,12 @@ Available dashboards:
 - Add all UI interactions inside a Component class extending `BaseComponent`
 - Prefer `{ automationId }` locator strategy when the app supports it
 - Tag every spec file AND every scenario
+- Add a priority severity tag (`critical`, `high`, `medium`, or `low`) to every scenario
 - Put credentials in `env/<envname>/default.properties`, never in code
+- Use `npm run gauge:*` scripts — they set `PLAYGAUGE_ENV` automatically
 - Run `npm run gauge:smoke` before raising a PR
 - Keep `DB_ENABLED=false` for all local environments
+- Keep `HEADLESS=true` in all committed env files — GitHub Actions runners have no display server
 - Use `ObservabilityCollector` data when diagnosing flaky tests
 
 ### DON'T
@@ -604,6 +665,8 @@ Available dashboards:
 - Don't install PostgreSQL or Grafana for local development
 - Don't run `DB_ENABLED=true` without running `npm run db:migrate` first
 - Don't hardcode test data inside step implementations
+- Don't commit `HEADLESS=false` to any env file — it crashes GitHub Actions CI with "Missing X server"
+- Don't call `gauge` directly without setting `PLAYGAUGE_ENV` — use the `npm run gauge:*` scripts
 
 ---
 
@@ -636,11 +699,25 @@ npm run db:migrate
 ```
 
 **AI Analyzer returns fallback category**  
-Ensure the API key is exported:
+Ensure the API key is set:
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export AI_API_KEY=sk-ant-...
+export AI_PROVIDER=anthropic
 npm run ai:analyze
 ```
+
+**CI fails with "Missing X server or $DISPLAY"**  
+`HEADLESS=false` in any env file causes this crash on GitHub Actions runners (no display server).  
+Fix: set `HEADLESS=true` in the env file and commit. Only flip to `false` locally for visual debugging.
+
+**Allure Environment panel shows wrong URL / env name**  
+You're calling `gauge` directly without setting `PLAYGAUGE_ENV`. Use `npm run gauge:saucedemo` (or the appropriate `gauge:*` script) — they set both `GAUGE_ENV` and `PLAYGAUGE_ENV` so `EnvLoader` reads the correct env file.
+
+**Allure Trend chart is empty**  
+Trend requires at least 2 runs with history. Locally: run `npm run allure:generate` once, then run tests again and regenerate — `AllureSetup` copies `allure-report/history/` into the next results automatically. In CI: the pipeline saves and restores `allure-history` artifacts between runs.
+
+**Allure Categories panel is empty**  
+This is correct when all tests pass. Categories only populate for failed tests, classified into Product Defects, Test Issues, and Infrastructure Issues.
 
 ---
 
