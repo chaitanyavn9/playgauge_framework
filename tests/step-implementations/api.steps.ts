@@ -10,7 +10,7 @@ import * as assert from 'assert';
 
 const env = EnvLoader.load();
 
-export class ApiSteps {
+export default class ApiSteps {
 
   private getLastResponse(): APIResponse {
     return DataStoreFactory.getScenarioDataStore().get('lastApiResponse') as APIResponse;

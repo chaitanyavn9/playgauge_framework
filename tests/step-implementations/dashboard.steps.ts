@@ -3,7 +3,7 @@ import { Page } from 'playwright';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ObservabilityCollector } from '../observability/ObservabilityCollector';
 
-export class DashboardSteps {
+export default class DashboardSteps {
 
   private getPage(): Page                   { return DataStoreFactory.getScenarioDataStore().get('page') as Page; }
   private getObs():  ObservabilityCollector { return DataStoreFactory.getScenarioDataStore().get('obs')  as ObservabilityCollector; }

@@ -4,7 +4,7 @@ import { LoginPage }     from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ObservabilityCollector } from '../observability/ObservabilityCollector';
 
-export class LoginSteps {
+export default class LoginSteps {
 
   private getPage(): Page                   { return DataStoreFactory.getScenarioDataStore().get('page') as Page; }
   private getObs():  ObservabilityCollector { return DataStoreFactory.getScenarioDataStore().get('obs')  as ObservabilityCollector; }

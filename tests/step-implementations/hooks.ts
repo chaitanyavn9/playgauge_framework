@@ -23,7 +23,7 @@ let context: BrowserContext;
 let page:    Page;
 let obs:     ObservabilityCollector;
 
-export class Hooks {
+export default class Hooks {
 
   // ─── Suite hooks ─────────────────────────────────────────────────────────────
 

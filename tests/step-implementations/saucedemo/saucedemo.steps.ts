@@ -13,7 +13,7 @@ import { CartPage }       from '../../pages/saucedemo/CartPage';
 import { CheckoutPage }   from '../../pages/saucedemo/CheckoutPage';
 import { expect }         from '@playwright/test';
 
-export class SauceDemoSteps {
+export default class SauceDemoSteps {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 

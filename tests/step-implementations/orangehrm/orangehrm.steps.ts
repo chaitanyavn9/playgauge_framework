@@ -9,7 +9,7 @@ import { OrangeLoginPage }     from '../../pages/orangehrm/OrangeLoginPage';
 import { OrangeDashboardPage } from '../../pages/orangehrm/OrangeDashboardPage';
 import { OrangeAdminPage }     from '../../pages/orangehrm/OrangeAdminPage';
 
-export class OrangeHRMSteps {
+export default class OrangeHRMSteps {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
