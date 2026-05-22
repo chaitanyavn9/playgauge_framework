@@ -64,13 +64,13 @@ export class Hooks {
   async afterScenario(executionContext: ExecutionContext): Promise<void> {
     // ── Determine pass / fail from Gauge's own ExecutionContext ─────────────────
     const scenarioResult = executionContext.getCurrentScenario();
-    const isFailed       = scenarioResult.isFailed;
-    const testStatus     = isFailed ? 'failed' : 'passed' as 'passed' | 'failed';
+    const isFailed       = scenarioResult?.getIsFailing() ?? false;
+    const testStatus: 'passed' | 'failed' = isFailed ? 'failed' : 'passed';
 
     // ── Extract real error message + stack trace from the failing step ──────────
-    const failedStep        = isFailed ? scenarioResult.failedStep : null;
-    const failureMessage    = failedStep?.errorMessage  ?? '';
-    const failureStackTrace = failedStep?.stackTrace    ?? '';
+    const failedStep        = isFailed ? executionContext.getCurrentStep() : null;
+    const failureMessage    = failedStep?.getErrorMessage()  ?? '';
+    const failureStackTrace = failedStep?.getStacktrace()    ?? executionContext.getStacktrace() ?? '';
 
     if (isFailed) {
       logger.debug(`[hooks] Failure captured — message: "${failureMessage.slice(0, 120)}"`);
@@ -88,7 +88,7 @@ export class Hooks {
     const store = DataStoreFactory.getScenarioDataStore();
     const meta: TestMeta = {
       spec:              store.get('specFile') as string              ?? 'unknown.md',
-      test:              scenarioResult.name ?? store.get('currentScenario') as string ?? 'unknown',
+      test:              scenarioResult?.getName() ?? store.get('currentScenario') as string ?? 'unknown',
       module:            store.get('module') as string                ?? 'unknown',
       integrationFolder: store.get('integrationFolder') as string     ?? 'unknown',
       testStatus,
