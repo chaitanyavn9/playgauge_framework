@@ -43,16 +43,12 @@ export class AllureSetup {
   // ─── Environment ─────────────────────────────────────────────────────────────
 
   private writeEnvironment(): void {
-    // ALLURE_ENV and ALLURE_BASE_URL are set explicitly in npm scripts
-    // (e.g. ALLURE_ENV=saucedemo ALLURE_BASE_URL=https://www.saucedemo.com)
-    // because gauge overrides GAUGE_ENV to 'default' inside its own subprocess,
-    // making it impossible to reliably detect the active env from process.env.GAUGE_ENV.
-    const envName = process.env.ALLURE_ENV     ?? this.env.envName;
-    const baseURL = process.env.ALLURE_BASE_URL ?? this.env.baseURL;
-
+    // env.envName and env.baseURL are now correct because EnvLoader uses
+    // PLAYGAUGE_ENV (set in npm scripts) instead of GAUGE_ENV (overridden
+    // by gauge to 'default' inside its subprocess).
     const info: Record<string, string> = {
-      'Environment': envName,
-      'BASE_URL':    baseURL,
+      'Environment': this.env.envName,
+      'BASE_URL':    this.env.baseURL,
       'Browser':     this.env.browser,
       'Headless':    String(this.env.headless),
       'AI_Provider': this.env.aiProvider,

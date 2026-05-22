@@ -111,10 +111,9 @@ jobs:
       - name: Run Gauge tests
         env:
           GAUGE_ENV:       ${{ env.GAUGE_ENV }}
-          # ALLURE_ENV / ALLURE_BASE_URL are read by AllureSetup to populate
-          # the Allure Environment panel with the real env name and URL.
-          ALLURE_ENV:      ${{ env.GAUGE_ENV }}
-          ALLURE_BASE_URL: ${{ secrets.STAGING_BASE_URL || 'https://www.saucedemo.com' }}
+          # PLAYGAUGE_ENV is read by EnvLoader to select the correct env file.
+          # GAUGE_ENV is unreliable (gauge overrides it to 'default' internally).
+          PLAYGAUGE_ENV:   ${{ env.GAUGE_ENV }}
           RUN_ID:          ${{ github.run_id }}
           DB_HOST:         localhost
           DB_PORT:         5432
