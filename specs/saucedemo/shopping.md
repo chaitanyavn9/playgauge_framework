@@ -10,7 +10,7 @@ Tags: smoke
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
 * Verify landing on the products page
-* Verify exactly 6 products are displayed
+* Verify exactly "6" products are displayed
 
 ## Add single item to cart
 Tags: smoke, cart
@@ -18,7 +18,7 @@ Tags: smoke, cart
 * Open SauceDemo login page
 * Login as "standard_user" with password "secret_sauce"
 * Add product "Sauce Labs Backpack" to cart
-* Verify cart badge shows 1 item
+* Verify cart badge shows "1" item
 
 ## Add multiple items to cart
 Tags: regression, cart
@@ -27,7 +27,7 @@ Tags: regression, cart
 * Login as "standard_user" with password "secret_sauce"
 * Add product "Sauce Labs Backpack" to cart
 * Add product "Sauce Labs Bike Light" to cart
-* Verify cart badge shows 2 items
+* Verify cart badge shows "2" items
 
 ## Full checkout flow end-to-end
 Tags: smoke, e2e
