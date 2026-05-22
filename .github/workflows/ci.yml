@@ -22,7 +22,7 @@ on:
         default: 'smoke'
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   GAUGE_ENV: ${{ github.event.inputs.environment || 'staging' }}
 
 jobs:
