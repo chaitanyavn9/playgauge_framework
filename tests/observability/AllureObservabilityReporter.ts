@@ -8,7 +8,14 @@
  *   - HTML attachment: observability-custom-report (tables for console + network)
  */
 
-import * as allure from 'allure-js-commons';
+import * as allureCommons from 'allure-js-commons';
+
+// allure-js-commons v2 exposes attachment/parameter via the global runtime.
+// We declare the runtime shape here for type safety.
+const allure = allureCommons as typeof allureCommons & {
+  attachment: (name: string, content: string | Buffer, type: string) => Promise<void>;
+  parameter: (name: string, value: string) => Promise<void>;
+};
 import { FailureFeaturesV1, ApiDependencyEdge, ConsoleSignal, NetworkFailure } from './types';
 import { ObservabilityCollector } from './ObservabilityCollector';
 import { FrameworkEnv } from '../utils/EnvLoader';

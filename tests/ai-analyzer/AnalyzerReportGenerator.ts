@@ -90,7 +90,7 @@ export class AnalyzerReportGenerator {
           <tr>
             <td>${i + 1}</td>
             <td>
-              <strong>${esc(r.test)}</strong><br>
+              <strong>${esc(r.testName)}</strong><br>
               <span style="color:#888;font-size:11px">${esc(r.spec)}</span>
             </td>
             <td><span class="badge" style="background:${CATEGORY_COLORS[r.failureCategory] ?? '#757575'}">${r.failureCategory}</span></td>

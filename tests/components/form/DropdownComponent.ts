@@ -115,7 +115,7 @@ export class DropdownComponent extends BaseComponent {
   async getAllOptions(): Promise<string[]> {
     if (this.dropdownType === 'native') {
       return this.root.evaluate((el) =>
-        Array.from((el as HTMLSelectElement).options).map((o) => o.text),
+        Array.from((el as HTMLSelectElement).options).map((o: HTMLOptionElement) => o.text),
       );
     }
     await this.openDropdown();
