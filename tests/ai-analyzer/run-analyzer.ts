@@ -12,6 +12,17 @@ import { closePool } from '../db/DatabaseClient';
 import { logger } from '../utils/Logger';
 
 async function main(): Promise<void> {
+  // AI Analyzer requires PostgreSQL (DB_ENABLED=true).
+  // For local runs without a database, skip gracefully.
+  const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
+  if (!dbEnabled) {
+    logger.info(
+      'AI Analyzer skipped — DB_ENABLED=false. ' +
+      'Set DB_ENABLED=true and configure PostgreSQL to enable AI analysis.',
+    );
+    return;
+  }
+
   const runId = process.env.RUN_ID ?? `run_${Date.now()}`;
   logger.info(`Starting AI Analyzer for runId=${runId}`);
 

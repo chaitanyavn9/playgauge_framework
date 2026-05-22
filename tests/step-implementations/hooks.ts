@@ -62,71 +62,81 @@ export class Hooks {
 
   @AfterScenario()
   async afterScenario(executionContext: ExecutionContext): Promise<void> {
-    // ── Determine pass / fail from Gauge's own ExecutionContext ─────────────────
-    const scenarioResult = executionContext.getCurrentScenario();
-    const isFailed       = scenarioResult?.getIsFailing() ?? false;
-    const testStatus: 'passed' | 'failed' = isFailed ? 'failed' : 'passed';
-
-    // ── Extract real error message + stack trace from the failing step ──────────
-    const failedStep        = isFailed ? executionContext.getCurrentStep() : null;
-    const failureMessage    = failedStep?.getErrorMessage()  ?? '';
-    const failureStackTrace = failedStep?.getStacktrace()    ?? executionContext.getStacktrace() ?? '';
-
-    if (isFailed) {
-      logger.debug(`[hooks] Failure captured — message: "${failureMessage.slice(0, 120)}"`);
-    }
-
-    // ── Capture full-page screenshot on failure ─────────────────────────────────
-    let screenshotBase64: string | undefined;
-    if (isFailed) {
-      try {
-        const buf = await page.screenshot({ fullPage: true });
-        screenshotBase64 = buf.toString('base64');
-      } catch { /* ignore screenshot errors */ }
-    }
-
-    const store = DataStoreFactory.getScenarioDataStore();
-    const meta: TestMeta = {
-      spec:              store.get('specFile') as string              ?? 'unknown.md',
-      test:              scenarioResult?.getName() ?? store.get('currentScenario') as string ?? 'unknown',
-      module:            store.get('module') as string                ?? 'unknown',
-      integrationFolder: store.get('integrationFolder') as string     ?? 'unknown',
-      testStatus,
-      failureMessage,
-      failureStackTrace,
-      retryAttempt: 0,
-      maxRetries:   0,
-      screenshotBase64,
-    };
-
-    const features = obs.buildFailureFeatures(meta);
-
-    // Attach to Allure (non-fatal — never crash the runner on reporter errors)
+    // Entire hook is wrapped — nothing here must ever crash the gauge runner.
     try {
-      const allureReporter = new AllureObservabilityReporter(obs, env);
-      await allureReporter.attachAll(features);
-    } catch (err) {
-      logger.warn('Allure attachment failed (non-fatal)', { error: (err as Error).message });
-    }
+      // ── Determine pass / fail from Gauge's own ExecutionContext ───────────────
+      const scenarioResult = executionContext.getCurrentScenario();
+      const isFailed       = scenarioResult?.getIsFailing() ?? false;
+      const testStatus: 'passed' | 'failed' = isFailed ? 'failed' : 'passed';
 
-    // Persist to DB — only when DB_ENABLED=true (CI/CD testrunner)
-    if (env.dbEnabled) {
-      try {
-        await repo.save({
-          features,
-          apiCalls:       obs.getApiCalls(),
-          consoleSignals: obs.getConsoleSignals(),
-          environment:    env.envName,
-          runId:          RUN_ID,
-        });
-      } catch (err) {
-        logger.error('DB persist failed (non-fatal)', { error: (err as Error).message });
+      // ── Extract real error message + stack trace from the failing step ────────
+      const failedStep        = isFailed ? executionContext.getCurrentStep() : null;
+      const failureMessage    = failedStep?.getErrorMessage()  ?? '';
+      const failureStackTrace = failedStep?.getStacktrace()    ?? executionContext.getStacktrace() ?? '';
+
+      if (isFailed) {
+        logger.debug(`[hooks] Failure captured — message: "${failureMessage.slice(0, 120)}"`);
       }
-    } else {
-      logger.debug('DB_ENABLED=false — skipping database persistence (local run)');
-    }
 
-    obs.reset();
-    await context?.close();
+      // ── Capture full-page screenshot on failure ───────────────────────────────
+      let screenshotBase64: string | undefined;
+      if (isFailed && page) {
+        try {
+          const buf = await page.screenshot({ fullPage: true });
+          screenshotBase64 = buf.toString('base64');
+        } catch { /* ignore screenshot errors */ }
+      }
+
+      const store = DataStoreFactory.getScenarioDataStore();
+      const meta: TestMeta = {
+        spec:              store.get('specFile') as string              ?? 'unknown.md',
+        test:              scenarioResult?.getName() ?? store.get('currentScenario') as string ?? 'unknown',
+        module:            store.get('module') as string                ?? 'unknown',
+        integrationFolder: store.get('integrationFolder') as string     ?? 'unknown',
+        testStatus,
+        failureMessage,
+        failureStackTrace,
+        retryAttempt: 0,
+        maxRetries:   0,
+        screenshotBase64,
+      };
+
+      if (obs) {
+        const features = obs.buildFailureFeatures(meta);
+
+        // Attach to Allure (non-fatal)
+        try {
+          const allureReporter = new AllureObservabilityReporter(obs, env);
+          await allureReporter.attachAll(features);
+        } catch (err) {
+          logger.warn('Allure attachment failed (non-fatal)', { error: (err as Error).message });
+        }
+
+        // Persist to DB — only when DB_ENABLED=true (CI/CD testrunner)
+        if (env.dbEnabled) {
+          try {
+            await repo.save({
+              features,
+              apiCalls:       obs.getApiCalls(),
+              consoleSignals: obs.getConsoleSignals(),
+              environment:    env.envName,
+              runId:          RUN_ID,
+            });
+          } catch (err) {
+            logger.error('DB persist failed (non-fatal)', { error: (err as Error).message });
+          }
+        } else {
+          logger.debug('DB_ENABLED=false — skipping database persistence (local run)');
+        }
+      }
+
+    } catch (err) {
+      // Safety net — log and continue so the gauge runner stays alive
+      logger.error('[afterScenario] Unexpected error (non-fatal)', { error: (err as Error).message });
+    } finally {
+      // Cleanup always runs, even if the body above threw
+      try { obs?.reset(); } catch { /* ignore */ }
+      try { await context?.close(); } catch { /* ignore */ }
+    }
   }
 }
