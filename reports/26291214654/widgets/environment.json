@@ -1,0 +1,1 @@
+[{"values":["chromium"],"name":"Browser"},{"values":["true"],"name":"Headless"},{"values":["default"],"name":"Environment"},{"values":["https://example.com"],"name":"BASE_URL"},{"values":["openai"],"name":"AI_Provider"},{"values":["true"],"name":"DB_Enabled"}]
