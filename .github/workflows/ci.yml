@@ -81,8 +81,9 @@ jobs:
       - name: Install Gauge
         run: |
           curl -SsL https://downloads.gauge.org/stable | sh
+          export PATH=$PATH:/usr/local/bin
           gauge install ts
-          gauge install allure
+          gauge install html-report
 
       - name: Run DB migration
         env:
