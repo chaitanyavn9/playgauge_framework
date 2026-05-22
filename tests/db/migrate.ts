@@ -20,7 +20,10 @@ async function migrate(): Promise<void> {
   await closePool();
 }
 
-migrate().catch((err) => {
-  logger.error('Migration failed', { error: (err as Error).message });
-  process.exit(1);
-});
+// Guard: only run when invoked directly (not when imported by gauge-ts)
+if (require.main === module) {
+  migrate().catch((err) => {
+    logger.error('Migration failed', { error: (err as Error).message });
+    process.exit(1);
+  });
+}

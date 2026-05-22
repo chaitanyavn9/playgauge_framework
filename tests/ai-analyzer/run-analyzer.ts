@@ -38,7 +38,10 @@ async function main(): Promise<void> {
   logger.info('AI Analyzer complete ✓');
 }
 
-main().catch((err) => {
-  logger.error('AI Analyzer failed', { error: (err as Error).message });
-  process.exit(1);
-});
+// Guard: only run when invoked directly (not when imported by gauge-ts)
+if (require.main === module) {
+  main().catch((err) => {
+    logger.error('AI Analyzer failed', { error: (err as Error).message });
+    process.exit(1);
+  });
+}
