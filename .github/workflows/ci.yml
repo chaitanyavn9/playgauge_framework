@@ -89,6 +89,16 @@ jobs:
           gauge install ts
           gauge install html-report
 
+      # ── Allure Trend: restore history from the previous CI run ─────────────
+      # This is what makes the Trend chart build across runs.
+      # On first-ever run this step is skipped gracefully (no artifact yet).
+      - name: Restore Allure history (for Trend)
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true      # first run — no history artifact yet
+        with:
+          name: allure-history
+          path: allure-results/history
+
       - name: Run DB migration
         env:
           DB_HOST:     localhost
@@ -100,20 +110,24 @@ jobs:
 
       - name: Run Gauge tests
         env:
-          GAUGE_ENV:    ${{ env.GAUGE_ENV }}
-          RUN_ID:       ${{ github.run_id }}
-          DB_HOST:      localhost
-          DB_PORT:      5432
-          DB_NAME:      playgauge_db
-          DB_USER:      playgauge_user
-          DB_PASSWORD:  ci_password
-          DB_ENABLED:   true
-          AI_PROVIDER:  ${{ secrets.AI_PROVIDER || 'openai' }}
-          AI_API_KEY:   ${{ secrets.AI_API_KEY }}
+          GAUGE_ENV:       ${{ env.GAUGE_ENV }}
+          # ALLURE_ENV / ALLURE_BASE_URL are read by AllureSetup to populate
+          # the Allure Environment panel with the real env name and URL.
+          ALLURE_ENV:      ${{ env.GAUGE_ENV }}
+          ALLURE_BASE_URL: ${{ secrets.STAGING_BASE_URL || 'https://www.saucedemo.com' }}
+          RUN_ID:          ${{ github.run_id }}
+          DB_HOST:         localhost
+          DB_PORT:         5432
+          DB_NAME:         playgauge_db
+          DB_USER:         playgauge_user
+          DB_PASSWORD:     ci_password
+          DB_ENABLED:      true
+          AI_PROVIDER:     ${{ secrets.AI_PROVIDER || 'openai' }}
+          AI_API_KEY:      ${{ secrets.AI_API_KEY }}
           # Staging overrides — only needed for environment=staging/dev/prod
-          BASE_URL:     ${{ secrets.STAGING_BASE_URL }}
-          USERNAME:     ${{ secrets.STAGING_USERNAME }}
-          PASSWORD:     ${{ secrets.STAGING_PASSWORD }}
+          BASE_URL:        ${{ secrets.STAGING_BASE_URL }}
+          USERNAME:        ${{ secrets.STAGING_USERNAME }}
+          PASSWORD:        ${{ secrets.STAGING_PASSWORD }}
         run: |
           TAGS="${{ github.event.inputs.tags || 'smoke' }}"
           SPECS="${{ github.event.inputs.specs || 'specs/saucedemo/' }}"
@@ -136,6 +150,17 @@ jobs:
       - name: Generate Allure report
         if: always()
         run: npm run allure:generate
+
+      # ── Allure Trend: save history so the NEXT CI run can show a trend bar ─
+      # Uses a fixed artifact name so the next run's "Restore" step finds it.
+      - name: Save Allure history (for next run's Trend)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-history
+          path: allure-report/history/
+          retention-days: 90
+          overwrite: true        # replace the previous run's copy
 
       - name: Upload Allure results
         if: always()
