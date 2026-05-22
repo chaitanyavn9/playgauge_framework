@@ -4,7 +4,7 @@
  * All UI knowledge lives in the page + component layer.
  */
 
-import { Step, DataStore } from 'gauge-ts';
+import { Step, DataStoreFactory } from 'gauge-ts';
 import { Page } from 'playwright';
 import { ObservabilityCollector } from '../../observability/ObservabilityCollector';
 import { SauceLoginPage } from '../../pages/saucedemo/SauceLoginPage';
@@ -13,142 +13,145 @@ import { CartPage }       from '../../pages/saucedemo/CartPage';
 import { CheckoutPage }   from '../../pages/saucedemo/CheckoutPage';
 import { expect }         from '@playwright/test';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+export class SauceDemoSteps {
 
-function getPage(): Page                    { return DataStore.ScenarioDataStore.get('page') as Page; }
-function getObs():  ObservabilityCollector  { return DataStore.ScenarioDataStore.get('obs')  as ObservabilityCollector; }
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function login():    SauceLoginPage  { return new SauceLoginPage(getPage(), getObs()); }
-function products(): ProductsPage    { return new ProductsPage(getPage(), getObs()); }
-function cart():     CartPage        { return new CartPage(getPage(), getObs()); }
-function checkout(): CheckoutPage    { return new CheckoutPage(getPage(), getObs()); }
+  private getPage(): Page                   { return DataStoreFactory.getScenarioDataStore().get('page') as Page; }
+  private getObs():  ObservabilityCollector { return DataStoreFactory.getScenarioDataStore().get('obs')  as ObservabilityCollector; }
 
-// ─── Login steps ─────────────────────────────────────────────────────────────
+  private login():    SauceLoginPage  { return new SauceLoginPage(this.getPage(), this.getObs()); }
+  private products(): ProductsPage    { return new ProductsPage(this.getPage(), this.getObs()); }
+  private cart():     CartPage        { return new CartPage(this.getPage(), this.getObs()); }
+  private checkout(): CheckoutPage    { return new CheckoutPage(this.getPage(), this.getObs()); }
 
-@Step('Open SauceDemo login page')
-async function openSauceLogin(): Promise<void> {
-  await login().open();
-}
+  // ─── Login steps ─────────────────────────────────────────────────────────────
 
-@Step('Login as <username> with password <password>')
-async function loginAs(username: string, password: string): Promise<void> {
-  await login().loginAs(username, password);
-}
+  @Step('Open SauceDemo login page')
+  async openSauceLogin(): Promise<void> {
+    await this.login().open();
+  }
 
-@Step('Verify landing on the products page')
-async function verifyProductsPage(): Promise<void> {
-  await products().assertOnProductsPage();
-}
+  @Step('Login as <username> with password <password>')
+  async loginAs(username: string, password: string): Promise<void> {
+    await this.login().loginAs(username, password);
+  }
 
-@Step('Verify login error is displayed')
-async function verifyLoginError(): Promise<void> {
-  await login().assertLoginFailed();
-}
+  @Step('Verify landing on the products page')
+  async verifyProductsPage(): Promise<void> {
+    await this.products().assertOnProductsPage();
+  }
 
-@Step('Verify error contains <text>')
-async function verifyErrorText(text: string): Promise<void> {
-  await login().assertErrorContains(text);
-}
+  @Step('Verify login error is displayed')
+  async verifyLoginError(): Promise<void> {
+    await this.login().assertLoginFailed();
+  }
 
-@Step('Verify username field is present on login page')
-async function verifyUsernameField(): Promise<void> {
-  await login().usernameInput.assertVisible();
-}
+  @Step('Verify error contains <text>')
+  async verifyErrorText(text: string): Promise<void> {
+    await this.login().assertErrorContains(text);
+  }
 
-@Step('Verify password field is present on login page')
-async function verifyPasswordField(): Promise<void> {
-  await login().passwordInput.assertVisible();
-}
+  @Step('Verify username field is present on login page')
+  async verifyUsernameField(): Promise<void> {
+    await this.login().usernameInput.assertVisible();
+  }
 
-@Step('Verify login button is present on login page')
-async function verifyLoginBtn(): Promise<void> {
-  await login().loginButton.assertVisible();
-}
+  @Step('Verify password field is present on login page')
+  async verifyPasswordField(): Promise<void> {
+    await this.login().passwordInput.assertVisible();
+  }
 
-// ─── Products steps ───────────────────────────────────────────────────────────
+  @Step('Verify login button is present on login page')
+  async verifyLoginBtn(): Promise<void> {
+    await this.login().loginButton.assertVisible();
+  }
 
-@Step('Verify exactly <count> products are displayed')
-async function verifyProductCount(count: string): Promise<void> {
-  await products().assertProductCount(parseInt(count, 10));
-}
+  // ─── Products steps ───────────────────────────────────────────────────────────
 
-@Step('Add product <name> to cart')
-async function addProductToCart(name: string): Promise<void> {
-  await products().addToCart(name);
-}
+  @Step('Verify exactly <count> products are displayed')
+  async verifyProductCount(count: string): Promise<void> {
+    await this.products().assertProductCount(parseInt(count, 10));
+  }
 
-@Step('Verify cart badge shows <count> item')
-async function verifyCartBadge(count: string): Promise<void> {
-  await products().assertCartBadge(parseInt(count, 10));
-}
+  @Step('Add product <name> to cart')
+  async addProductToCart(name: string): Promise<void> {
+    await this.products().addToCart(name);
+  }
 
-@Step('Verify cart badge shows <count> items')
-async function verifyCartBadgePlural(count: string): Promise<void> {
-  await products().assertCartBadge(parseInt(count, 10));
-}
+  @Step('Verify cart badge shows <count> item')
+  async verifyCartBadge(count: string): Promise<void> {
+    await this.products().assertCartBadge(parseInt(count, 10));
+  }
 
-@Step('Sort products by <option>')
-async function sortProducts(option: string): Promise<void> {
-  await products().sortProductsBy(option);
-}
+  @Step('Verify cart badge shows <count> items')
+  async verifyCartBadgePlural(count: string): Promise<void> {
+    await this.products().assertCartBadge(parseInt(count, 10));
+  }
 
-// ─── Cart steps ───────────────────────────────────────────────────────────────
+  @Step('Sort products by <option>')
+  async sortProducts(option: string): Promise<void> {
+    await this.products().sortProductsBy(option);
+  }
 
-@Step('Go to cart page')
-async function goToCart(): Promise<void> {
-  await products().goToCart();
-  await cart().assertOnCartPage();
-}
+  // ─── Cart steps ───────────────────────────────────────────────────────────────
 
-@Step('Verify <item> is in the cart')
-async function verifyItemInCart(item: string): Promise<void> {
-  await cart().assertItemInCart(item);
-}
+  @Step('Go to cart page')
+  async goToCart(): Promise<void> {
+    await this.products().goToCart();
+    await this.cart().assertOnCartPage();
+  }
 
-@Step('Proceed to checkout')
-async function proceedToCheckout(): Promise<void> {
-  await cart().proceedToCheckout();
-  await checkout().assertOnStepOne();
-}
+  @Step('Verify <item> is in the cart')
+  async verifyItemInCart(item: string): Promise<void> {
+    await this.cart().assertItemInCart(item);
+  }
 
-@Step('Remove <item> from cart')
-async function removeItemFromCart(item: string): Promise<void> {
-  await cart().removeItem(item);
-}
+  @Step('Proceed to checkout')
+  async proceedToCheckout(): Promise<void> {
+    await this.cart().proceedToCheckout();
+    await this.checkout().assertOnStepOne();
+  }
 
-@Step('Verify cart is empty')
-async function verifyCartEmpty(): Promise<void> {
-  await cart().assertCartEmpty();
-}
+  @Step('Remove <item> from cart')
+  async removeItemFromCart(item: string): Promise<void> {
+    await this.cart().removeItem(item);
+  }
 
-// ─── Checkout steps ───────────────────────────────────────────────────────────
+  @Step('Verify cart is empty')
+  async verifyCartEmpty(): Promise<void> {
+    await this.cart().assertCartEmpty();
+  }
 
-@Step('Fill shipping details with first name <first> last name <last> zip <zip>')
-async function fillShippingDetails(first: string, last: string, zip: string): Promise<void> {
-  await checkout().fillShippingDetails({ firstName: first, lastName: last, zipCode: zip });
-}
+  // ─── Checkout steps ───────────────────────────────────────────────────────────
 
-@Step('Try to continue without filling shipping details')
-async function continueWithoutDetails(): Promise<void> {
-  await checkout().continueButton.click();
-}
+  @Step('Fill shipping details with first name <first> last name <last> zip <zip>')
+  async fillShippingDetails(first: string, last: string, zip: string): Promise<void> {
+    await this.checkout().fillShippingDetails({ firstName: first, lastName: last, zipCode: zip });
+  }
 
-@Step('Verify checkout validation error <message>')
-async function verifyCheckoutError(message: string): Promise<void> {
-  await checkout().assertValidationError(message);
-}
+  @Step('Try to continue without filling shipping details')
+  async continueWithoutDetails(): Promise<void> {
+    await this.checkout().continueButton.click();
+  }
 
-@Step('Verify on checkout overview page')
-async function verifyCheckoutOverview(): Promise<void> {
-  await checkout().assertOnStepTwo();
-}
+  @Step('Verify checkout validation error <message>')
+  async verifyCheckoutError(message: string): Promise<void> {
+    await this.checkout().assertValidationError(message);
+  }
 
-@Step('Confirm and finish the order')
-async function confirmOrder(): Promise<void> {
-  await checkout().confirmOrder();
-}
+  @Step('Verify on checkout overview page')
+  async verifyCheckoutOverview(): Promise<void> {
+    await this.checkout().assertOnStepTwo();
+  }
 
-@Step('Verify order completed successfully')
-async function verifyOrderComplete(): Promise<void> {
-  await checkout().assertOrderComplete();
+  @Step('Confirm and finish the order')
+  async confirmOrder(): Promise<void> {
+    await this.checkout().confirmOrder();
+  }
+
+  @Step('Verify order completed successfully')
+  async verifyOrderComplete(): Promise<void> {
+    await this.checkout().assertOrderComplete();
+  }
 }

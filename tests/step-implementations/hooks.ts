@@ -3,7 +3,7 @@
  * for every scenario. Persists results to DB and Allure after each test.
  */
 
-import { BeforeSuite, AfterSuite, BeforeScenario, AfterScenario, DataStore, ExecutionContext } from 'gauge-ts';
+import { BeforeSuite, AfterSuite, BeforeScenario, AfterScenario, DataStoreFactory, ExecutionContext } from 'gauge-ts';
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { EnvLoader } from '../utils/EnvLoader';
 import { ObservabilityCollector, TestMeta } from '../observability/ObservabilityCollector';
@@ -11,12 +11,11 @@ import { AllureObservabilityReporter } from '../observability/AllureObservabilit
 import { TestRunRepository } from '../db/TestRunRepository';
 import { logger } from '../utils/Logger';
 import * as dotenv from 'dotenv';
-import * as path from 'path';
 
 dotenv.config();
 
-const env   = EnvLoader.load();
-const repo  = new TestRunRepository();
+const env    = EnvLoader.load();
+const repo   = new TestRunRepository();
 const RUN_ID = process.env.RUN_ID ?? `run_${Date.now()}`;
 
 let browser: Browser;
@@ -24,105 +23,106 @@ let context: BrowserContext;
 let page:    Page;
 let obs:     ObservabilityCollector;
 
-// ─── Suite hooks ──────────────────────────────────────────────────────────────
+export class Hooks {
 
-@BeforeSuite()
-async function beforeSuite(): Promise<void> {
-  logger.info(`playgauge_framework starting — env=${env.envName}, runId=${RUN_ID}`);
-  browser = await chromium.launch({ headless: env.headless });
-}
+  // ─── Suite hooks ─────────────────────────────────────────────────────────────
 
-@AfterSuite()
-async function afterSuite(): Promise<void> {
-  await browser?.close();
-  logger.info('playgauge_framework suite complete');
-}
-
-// ─── Scenario hooks ───────────────────────────────────────────────────────────
-
-@BeforeScenario()
-async function beforeScenario(): Promise<void> {
-  context = await browser.newContext({
-    baseURL:    env.baseURL,
-    viewport:   { width: 1440, height: 900 },
-    ignoreHTTPSErrors: true,
-  });
-  page = await context.newPage();
-
-  obs = new ObservabilityCollector(page, env);
-  obs.attach();
-
-  // Make page + obs available to step implementations via Gauge DataStore
-  DataStore.ScenarioDataStore.put('page', page);
-  DataStore.ScenarioDataStore.put('obs',  obs);
-  DataStore.ScenarioDataStore.put('env',  env);
-}
-
-@AfterScenario()
-async function afterScenario(executionContext: ExecutionContext): Promise<void> {
-  // ── Determine pass / fail from Gauge's own ExecutionContext ─────────────────
-  const scenarioResult = executionContext.currentScenario;
-  const isFailed       = scenarioResult.isFailed;
-  const testStatus     = isFailed ? 'failed' : 'passed' as 'passed' | 'failed';
-
-  // ── Extract real error message + stack trace from the failing step ──────────
-  // Gauge populates failedStep only when the scenario actually failed.
-  // errorMessage is the concise one-liner; stackTrace is the full Playwright stack.
-  const failedStep       = isFailed ? scenarioResult.failedStep : null;
-  const failureMessage   = failedStep?.errorMessage   ?? '';
-  const failureStackTrace = failedStep?.stackTrace    ?? '';
-
-  if (isFailed) {
-    logger.debug(
-      `[hooks] Failure captured — message: "${failureMessage.slice(0, 120)}"`,
-    );
+  @BeforeSuite()
+  async beforeSuite(): Promise<void> {
+    logger.info(`playgauge_framework starting — env=${env.envName}, runId=${RUN_ID}`);
+    browser = await chromium.launch({ headless: env.headless });
   }
 
-  // ── Capture full-page screenshot on failure ─────────────────────────────────
-  let screenshotBase64: string | undefined;
-  if (isFailed) {
-    try {
-      const buf = await page.screenshot({ fullPage: true });
-      screenshotBase64 = buf.toString('base64');
-    } catch { /* ignore screenshot errors */ }
+  @AfterSuite()
+  async afterSuite(): Promise<void> {
+    await browser?.close();
+    logger.info('playgauge_framework suite complete');
   }
 
-  const meta: TestMeta = {
-    spec:               DataStore.ScenarioDataStore.get('specFile') as string ?? 'unknown.md',
-    test:               scenarioResult.name ?? DataStore.ScenarioDataStore.get('currentScenario') as string ?? 'unknown',
-    module:             DataStore.ScenarioDataStore.get('module') as string ?? 'unknown',
-    integrationFolder:  DataStore.ScenarioDataStore.get('integrationFolder') as string ?? 'unknown',
-    testStatus,
-    failureMessage,
-    failureStackTrace,
-    retryAttempt:       0,
-    maxRetries:         0,
-    screenshotBase64,
-  };
+  // ─── Scenario hooks ───────────────────────────────────────────────────────────
 
-  const features = obs.buildFailureFeatures(meta);
+  @BeforeScenario()
+  async beforeScenario(): Promise<void> {
+    context = await browser.newContext({
+      baseURL:           env.baseURL,
+      viewport:          { width: 1440, height: 900 },
+      ignoreHTTPSErrors: true,
+    });
+    page = await context.newPage();
 
-  // Attach to Allure
-  const allureReporter = new AllureObservabilityReporter(obs, env);
-  await allureReporter.attachAll(features);
+    obs = new ObservabilityCollector(page, env);
+    obs.attach();
 
-  // Persist to DB — only when DB_ENABLED=true (CI/CD testrunner)
-  if (env.dbEnabled) {
-    try {
-      await repo.save({
-        features,
-        apiCalls:       obs.getApiCalls(),
-        consoleSignals: obs.getConsoleSignals(),
-        environment:    env.envName,
-        runId:          RUN_ID,
-      });
-    } catch (err) {
-      logger.error('DB persist failed (non-fatal)', { error: (err as Error).message });
+    // Make page + obs available to step implementations via Gauge DataStore
+    const store = DataStoreFactory.getScenarioDataStore();
+    store.put('page', page);
+    store.put('obs',  obs);
+    store.put('env',  env);
+  }
+
+  @AfterScenario()
+  async afterScenario(executionContext: ExecutionContext): Promise<void> {
+    // ── Determine pass / fail from Gauge's own ExecutionContext ─────────────────
+    const scenarioResult = executionContext.getCurrentScenario();
+    const isFailed       = scenarioResult.isFailed;
+    const testStatus     = isFailed ? 'failed' : 'passed' as 'passed' | 'failed';
+
+    // ── Extract real error message + stack trace from the failing step ──────────
+    const failedStep        = isFailed ? scenarioResult.failedStep : null;
+    const failureMessage    = failedStep?.errorMessage  ?? '';
+    const failureStackTrace = failedStep?.stackTrace    ?? '';
+
+    if (isFailed) {
+      logger.debug(`[hooks] Failure captured — message: "${failureMessage.slice(0, 120)}"`);
     }
-  } else {
-    logger.debug('DB_ENABLED=false — skipping database persistence (local run)');
-  }
 
-  obs.reset();
-  await context?.close();
+    // ── Capture full-page screenshot on failure ─────────────────────────────────
+    let screenshotBase64: string | undefined;
+    if (isFailed) {
+      try {
+        const buf = await page.screenshot({ fullPage: true });
+        screenshotBase64 = buf.toString('base64');
+      } catch { /* ignore screenshot errors */ }
+    }
+
+    const store = DataStoreFactory.getScenarioDataStore();
+    const meta: TestMeta = {
+      spec:              store.get('specFile') as string              ?? 'unknown.md',
+      test:              scenarioResult.name ?? store.get('currentScenario') as string ?? 'unknown',
+      module:            store.get('module') as string                ?? 'unknown',
+      integrationFolder: store.get('integrationFolder') as string     ?? 'unknown',
+      testStatus,
+      failureMessage,
+      failureStackTrace,
+      retryAttempt: 0,
+      maxRetries:   0,
+      screenshotBase64,
+    };
+
+    const features = obs.buildFailureFeatures(meta);
+
+    // Attach to Allure
+    const allureReporter = new AllureObservabilityReporter(obs, env);
+    await allureReporter.attachAll(features);
+
+    // Persist to DB — only when DB_ENABLED=true (CI/CD testrunner)
+    if (env.dbEnabled) {
+      try {
+        await repo.save({
+          features,
+          apiCalls:       obs.getApiCalls(),
+          consoleSignals: obs.getConsoleSignals(),
+          environment:    env.envName,
+          runId:          RUN_ID,
+        });
+      } catch (err) {
+        logger.error('DB persist failed (non-fatal)', { error: (err as Error).message });
+      }
+    } else {
+      logger.debug('DB_ENABLED=false — skipping database persistence (local run)');
+    }
+
+    obs.reset();
+    await context?.close();
+  }
 }
