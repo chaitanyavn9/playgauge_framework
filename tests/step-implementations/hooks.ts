@@ -5,6 +5,7 @@
 
 import { BeforeSuite, AfterSuite, BeforeScenario, AfterScenario, DataStoreFactory, ExecutionContext } from 'gauge-ts';
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import * as path from 'path';
 import { EnvLoader } from '../utils/EnvLoader';
 import { ObservabilityCollector, TestMeta } from '../observability/ObservabilityCollector';
 import { AllureObservabilityReporter } from '../observability/AllureObservabilityReporter';
@@ -87,12 +88,21 @@ export default class Hooks {
         } catch { /* ignore screenshot errors */ }
       }
 
-      const store = DataStoreFactory.getScenarioDataStore();
+      // ── Read spec + scenario names from ExecutionContext ─────────────────────
+      const specInfo     = executionContext.getCurrentSpec();
+      const rawSpecFile  = specInfo?.getFileName() ?? '';
+      // Convert absolute path → relative (e.g. specs/saucedemo/login.md)
+      const specFile     = rawSpecFile
+        ? path.relative(process.cwd(), rawSpecFile)
+        : 'unknown.md';
+      const specName     = specInfo?.getName()  ?? specFile;
+      const scenarioName = scenarioResult?.getName() ?? 'unknown';
+
       const meta: TestMeta = {
-        spec:              store.get('specFile') as string              ?? 'unknown.md',
-        test:              scenarioResult?.getName() ?? store.get('currentScenario') as string ?? 'unknown',
-        module:            store.get('module') as string                ?? 'unknown',
-        integrationFolder: store.get('integrationFolder') as string     ?? 'unknown',
+        spec:              specFile,
+        test:              scenarioName,
+        module:            specName,
+        integrationFolder: specFile,
         testStatus,
         failureMessage,
         failureStackTrace,
