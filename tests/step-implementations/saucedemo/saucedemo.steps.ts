@@ -126,8 +126,12 @@ export default class SauceDemoSteps {
   // ─── Checkout steps ───────────────────────────────────────────────────────────
 
   @Step('Fill shipping details with first name <first> last name <last> zip <zip>')
-  async fillShippingDetails(first: string, last: string, zip: string): Promise<void> {
-    await this.checkout().fillShippingDetails({ firstName: first, lastName: last, zipCode: zip });
+  async fillShippingDetails(first: string | number, last: string | number, zip: string | number): Promise<void> {
+    await this.checkout().fillShippingDetails({
+      firstName: String(first),
+      lastName:  String(last),
+      zipCode:   String(zip),
+    });
   }
 
   @Step('Try to continue without filling shipping details')

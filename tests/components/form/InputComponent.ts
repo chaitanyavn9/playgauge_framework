@@ -23,19 +23,21 @@ export class InputComponent extends BaseComponent {
   }
 
   /** Clear existing value and type a new one */
-  async fill(value: string): Promise<void> {
+  async fill(value: string | number): Promise<void> {
+    const strValue = String(value);   // gauge passes numeric-looking params as numbers
     await this.interact('fill', async () => {
       await this.root.clear();
-      await this.root.fill(value);
+      await this.root.fill(strValue);
       logger.debug(`[${this.componentName}] filled with value`);
     });
   }
 
   /** Type character-by-character — useful for autocomplete fields */
-  async type(value: string, delayMs = 50): Promise<void> {
+  async type(value: string | number, delayMs = 50): Promise<void> {
+    const strValue = String(value);
     await this.interact('type', async () => {
       await this.root.clear();
-      await this.root.pressSequentially(value, { delay: delayMs });
+      await this.root.pressSequentially(strValue, { delay: delayMs });
     });
   }
 
