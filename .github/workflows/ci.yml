@@ -13,13 +13,17 @@ on:
       environment:
         description: 'Target environment'
         required: true
-        default: 'staging'
+        default: 'saucedemo'
         type: choice
-        options: [ dev, staging, prod ]
+        options: [ saucedemo, dev, staging, prod ]
       tags:
         description: 'Gauge tags to run (e.g. smoke or regression)'
         required: false
         default: 'smoke'
+      specs:
+        description: 'Specs folder to run'
+        required: false
+        default: 'specs/saucedemo/'
 
 permissions:
   contents: write
@@ -28,7 +32,7 @@ permissions:
 
 env:
   NODE_VERSION: '22'
-  GAUGE_ENV: ${{ github.event.inputs.environment || 'staging' }}
+  GAUGE_ENV: ${{ github.event.inputs.environment || 'saucedemo' }}
 
 jobs:
   # ─── Lint & TypeCheck ──────────────────────────────────────────────────────
@@ -47,7 +51,7 @@ jobs:
 
   # ─── Tests ────────────────────────────────────────────────────────────────
   test:
-    name: Run Tests (${{ github.event.inputs.environment || 'staging' }})
+    name: Run Tests (${{ github.event.inputs.environment || 'saucedemo' }})
     runs-on: ubuntu-latest
     needs: quality
     services:
@@ -96,31 +100,37 @@ jobs:
 
       - name: Run Gauge tests
         env:
-          GAUGE_ENV:       ${{ env.GAUGE_ENV }}
-          RUN_ID:          ${{ github.run_id }}
-          DB_HOST:         localhost
-          DB_PORT:         5432
-          DB_NAME:         playgauge_db
-          DB_USER:         playgauge_user
-          DB_PASSWORD:     ci_password
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          BASE_URL:        ${{ secrets.STAGING_BASE_URL }}
-          USERNAME:        ${{ secrets.STAGING_USERNAME }}
-          PASSWORD:        ${{ secrets.STAGING_PASSWORD }}
+          GAUGE_ENV:    ${{ env.GAUGE_ENV }}
+          RUN_ID:       ${{ github.run_id }}
+          DB_HOST:      localhost
+          DB_PORT:      5432
+          DB_NAME:      playgauge_db
+          DB_USER:      playgauge_user
+          DB_PASSWORD:  ci_password
+          DB_ENABLED:   true
+          AI_PROVIDER:  ${{ secrets.AI_PROVIDER || 'openai' }}
+          AI_API_KEY:   ${{ secrets.AI_API_KEY }}
+          # Staging overrides — only needed for environment=staging/dev/prod
+          BASE_URL:     ${{ secrets.STAGING_BASE_URL }}
+          USERNAME:     ${{ secrets.STAGING_USERNAME }}
+          PASSWORD:     ${{ secrets.STAGING_PASSWORD }}
         run: |
           TAGS="${{ github.event.inputs.tags || 'smoke' }}"
-          gauge run --tags "$TAGS" specs/
+          SPECS="${{ github.event.inputs.specs || 'specs/saucedemo/' }}"
+          gauge run --tags "$TAGS" "$SPECS"
 
       - name: Run AI Analyzer
         if: always()
         env:
-          RUN_ID:            ${{ github.run_id }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DB_HOST:           localhost
-          DB_PORT:           5432
-          DB_NAME:           playgauge_db
-          DB_USER:           playgauge_user
-          DB_PASSWORD:       ci_password
+          RUN_ID:       ${{ github.run_id }}
+          DB_HOST:      localhost
+          DB_PORT:      5432
+          DB_NAME:      playgauge_db
+          DB_USER:      playgauge_user
+          DB_PASSWORD:  ci_password
+          DB_ENABLED:   true
+          AI_PROVIDER:  ${{ secrets.AI_PROVIDER || 'openai' }}
+          AI_API_KEY:   ${{ secrets.AI_API_KEY }}
         run: npm run ai:analyze || true   # non-fatal
 
       - name: Generate Allure report
