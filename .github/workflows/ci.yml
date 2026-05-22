@@ -21,6 +21,11 @@ on:
         required: false
         default: 'smoke'
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 env:
   NODE_VERSION: '22'
   GAUGE_ENV: ${{ github.event.inputs.environment || 'staging' }}
