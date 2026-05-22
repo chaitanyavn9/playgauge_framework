@@ -22,7 +22,7 @@
     "ai:analyze": "ts-node tests/ai-analyzer/run-analyzer.ts",
     "db:migrate": "ts-node tests/db/migrate.ts",
     "db:seed": "ts-node tests/db/seed.ts",
-    "lint": "eslint tests/ --ext .ts",
+    "lint": "eslint tests/",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "typecheck": "tsc --noEmit"
   },
@@ -43,6 +43,8 @@
     "@getgauge/cli": "^1.6.7",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.6",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
     "allure-commandline": "^2.29.0",
     "eslint": "^9.5.0",
     "gauge-ts": "^0.3.6",
