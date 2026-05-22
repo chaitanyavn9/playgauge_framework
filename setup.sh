@@ -139,9 +139,8 @@ else
 fi
 
 info "Installing Gauge plugins..."
-gauge install js          2>/dev/null || warn "gauge-js plugin install failed — try manually: gauge install js"
+gauge install ts          2>/dev/null || warn "gauge-ts plugin install failed — try manually: gauge install ts"
 gauge install html-report 2>/dev/null || warn "gauge html-report plugin install failed"
-gauge install allure      2>/dev/null || warn "gauge allure plugin install failed"
 info "Gauge plugins ✓"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -153,8 +152,9 @@ if ! command -v allure &>/dev/null; then
   if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
     brew install allure
   else
-    # Use npm global install as fallback
-    npm install -g allure-commandline
+    # Use npx-local install to avoid sudo/EACCES permission issues
+    npm install --save-dev allure-commandline
+    info "allure installed locally — use: npx allure or npm run allure:generate"
   fi
 fi
 info "Allure ✓"
