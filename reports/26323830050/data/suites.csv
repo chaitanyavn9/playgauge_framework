@@ -1,0 +1,6 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"","1","Products page loads with all items","","2026-05-23","passed","2026-05-23","","SauceDemo Shopping Flow","",""
+"","1","Add single item to cart","","2026-05-23","passed","2026-05-23","","SauceDemo Shopping Flow","",""
+"","1","Successful login with standard user","","2026-05-23","passed","2026-05-23","","SauceDemo Login","",""
+"","0","Login page has all required elements","","2026-05-23","passed","2026-05-23","","SauceDemo Login","",""
+"","1","Full checkout flow end-to-end","","2026-05-23","passed","2026-05-23","","SauceDemo Shopping Flow","",""
