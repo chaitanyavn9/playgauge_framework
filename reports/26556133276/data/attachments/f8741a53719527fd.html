@@ -1,0 +1,31 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333;margin:16px}
+h1{font-size:18px;margin:0 0 12px}h2{font-size:15px;margin:20px 0 8px}
+table{border-collapse:collapse;width:100%;margin-bottom:16px}
+th,td{border:1px solid #ddd;padding:5px 9px;text-align:left;font-size:11.5px}
+th{background:#f5f5f5;font-weight:700}tr:nth-child(even){background:#fafafa}
+.sev-HIGH{color:#c62828;font-weight:700}.sev-MEDIUM{color:#e65100;font-weight:700}
+.sev-LOW{color:#2e7d32}.sev-NONE{color:#777}
+ul{margin:4px 0 10px;padding-left:18px}li{margin:2px 0}
+</style></head><body>
+<h1>🔭 Observability Report — Login page has all required elements</h1>
+<ul>
+  <li><strong>Spec:</strong> specs/saucedemo/login.md</li>
+  <li><strong>Module:</strong> SauceDemo Login</li>
+  <li><strong>Status:</strong> passed</li>
+  <li><strong>Severity:</strong> <span class="sev-HIGH">HIGH (score: 14)</span></li>
+  <li><strong>Suspected Category:</strong> Network / Infrastructure Issue (0.667)</li>
+  <li><strong>Reasons:</strong> 2 network failure(s); 2 console error(s)</li>
+</ul>
+
+<h2>📡 API Dependency Map (2 edges)</h2>
+<table><thead><tr><th>Page</th><th>Method</th><th>Endpoint</th><th>Calls</th><th>Failures</th><th>Avg</th><th>Max</th><th>Slow</th><th>Duplicate?</th></tr></thead><tbody><tr><td>SAUCE_LOGIN</td><td>POST</td><td>https://events.backtrace.io/api/summed-events/submit</td><td>1</td><td>1</td><td>293ms</td><td>293ms</td><td>0</td><td>No</td></tr><tr><td>SAUCE_LOGIN</td><td>POST</td><td>https://events.backtrace.io/api/unique-events/submit</td><td>1</td><td>1</td><td>302ms</td><td>302ms</td><td>0</td><td>No</td></tr></tbody></table>
+
+<h2>🖥 Console Signals (2)</h2>
+<table><thead><tr><th>Timestamp</th><th>Level</th><th>Type</th><th>Message</th></tr></thead><tbody><tr><td>2026-05-28T05:16:00.651Z</td><td>error</td><td>UNKNOWN_ERROR</td><td>Failed to load resource: the server responded with a status of 401 (Unauthorized)</td></tr><tr><td>2026-05-28T05:16:00.660Z</td><td>error</td><td>UNKNOWN_ERROR</td><td>Failed to load resource: the server responded with a status of 401 (Unauthorized)</td></tr></tbody></table>
+
+<h2>🌐 Network Failures (2)</h2>
+<table><thead><tr><th>Timestamp</th><th>Method</th><th>Status</th><th>Duration</th><th>Type</th><th>URL</th></tr></thead><tbody><tr><td>2026-05-28T05:16:00.651Z</td><td>POST</td><td>401</td><td>293ms</td><td>AUTH_FAILURE</td><td>https://events.backtrace.io/api/summed-events/submit?universe=UNIVERSE&amp;token=TOKEN</td></tr><tr><td>2026-05-28T05:16:00.660Z</td><td>POST</td><td>401</td><td>302ms</td><td>AUTH_FAILURE</td><td>https://events.backtrace.io/api/unique-events/submit?universe=UNIVERSE&amp;token=TOKEN</td></tr></tbody></table>
+
+</body></html>
