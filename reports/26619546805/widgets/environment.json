@@ -1,0 +1,1 @@
+[{"values":["saucedemo"],"name":"Environment"},{"values":["https://www.saucedemo.com"],"name":"BASE_URL"},{"values":["chromium"],"name":"Browser"},{"values":["true"],"name":"Headless"},{"values":["openai"],"name":"AI_Provider"},{"values":["true"],"name":"DB_Enabled"},{"values":["26619546805"],"name":"Run_ID"}]
