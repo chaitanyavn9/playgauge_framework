@@ -1,0 +1,103 @@
+{
+  "failureFeatures": {
+    "schemaVersion": "failure_features_v1",
+    "spec": "specs/saucedemo/login.md",
+    "test": "Successful login with standard user",
+    "module": "SauceDemo Login",
+    "integrationFolder": "specs/saucedemo/login.md",
+    "testStatus": "passed",
+    "isFailure": false,
+    "retryAttempt": 0,
+    "maxRetries": 0,
+    "passedOnRetry": false,
+    "componentKey": "SauceDemo Login",
+    "pageKey": "SAUCE_LOGIN",
+    "failureMessage": "",
+    "failureStackTrace": "",
+    "failureSignature": "sig_7478eeb6",
+    "failureBucketHint": "NONE",
+    "consoleErrorCount": 2,
+    "consoleWarnCount": 0,
+    "uncaughtExceptionCount": 0,
+    "networkFailureCount": 2,
+    "apiCallCount": 2,
+    "apiDependencyEdgeCount": 2,
+    "duplicateApiCallCount": 0,
+    "slowApiCallCount": 0,
+    "slowApiThresholdMs": 2000,
+    "http4xxCount": 2,
+    "http5xxCount": 0,
+    "p95ApiDuration": 53,
+    "maxApiDuration": 53,
+    "topFailingEndpoint": "https://events.backtrace.io/api/summed-events/submit",
+    "observabilitySeverity": "HIGH",
+    "observabilityScore": 14,
+    "observabilityReasons": [
+      "2 network failure(s)",
+      "2 console error(s)"
+    ],
+    "suspectedCategoryRule": "Network / Infrastructure Issue",
+    "suspectedCategoryScore": 0.667,
+    "timestamp": 1783315145207
+  },
+  "dependencyEdges": [
+    {
+      "page": "SAUCE_LOGIN",
+      "endpoint": "https://events.backtrace.io/api/summed-events/submit",
+      "method": "POST",
+      "calls": 1,
+      "failures": 1,
+      "avgDuration": 43,
+      "maxDuration": 43,
+      "slowCalls": 0,
+      "isDuplicate": false
+    },
+    {
+      "page": "SAUCE_LOGIN",
+      "endpoint": "https://events.backtrace.io/api/unique-events/submit",
+      "method": "POST",
+      "calls": 1,
+      "failures": 1,
+      "avgDuration": 53,
+      "maxDuration": 53,
+      "slowCalls": 0,
+      "isDuplicate": false
+    }
+  ],
+  "consoleSignals": [
+    {
+      "message": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "type": "UNKNOWN_ERROR",
+      "level": "error",
+      "timestamp": 1783315144472,
+      "page": "SAUCE_LOGIN"
+    },
+    {
+      "message": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "type": "UNKNOWN_ERROR",
+      "level": "error",
+      "timestamp": 1783315144476,
+      "page": "SAUCE_LOGIN"
+    }
+  ],
+  "networkFailures": [
+    {
+      "url": "https://events.backtrace.io/api/summed-events/submit?universe=UNIVERSE&token=TOKEN",
+      "method": "POST",
+      "status": 401,
+      "duration": 43,
+      "type": "AUTH_FAILURE",
+      "timestamp": 1783315144466,
+      "page": "SAUCE_LOGIN"
+    },
+    {
+      "url": "https://events.backtrace.io/api/unique-events/submit?universe=UNIVERSE&token=TOKEN",
+      "method": "POST",
+      "status": 401,
+      "duration": 53,
+      "type": "AUTH_FAILURE",
+      "timestamp": 1783315144475,
+      "page": "SAUCE_LOGIN"
+    }
+  ]
+}
