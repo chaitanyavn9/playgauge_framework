@@ -1,0 +1,25 @@
+{
+  "spec": "specs/saucedemo/login.md",
+  "test": "Login page has all required elements",
+  "module": "SauceDemo Login",
+  "observabilitySeverity": "HIGH",
+  "observabilityScore": 14,
+  "observabilityReasons": [
+    "2 network failure(s)",
+    "2 console error(s)"
+  ],
+  "consoleErrorCount": 2,
+  "consoleWarnCount": 0,
+  "uncaughtExceptionCount": 0,
+  "networkFailureCount": 2,
+  "apiCallCount": 2,
+  "slowApiCallCount": 0,
+  "duplicateApiCallCount": 0,
+  "http4xxCount": 2,
+  "http5xxCount": 0,
+  "p95ApiDuration": 431,
+  "maxApiDuration": 431,
+  "topFailingEndpoint": "https://events.backtrace.io/api/unique-events/submit",
+  "suspectedCategoryRule": "Network / Infrastructure Issue",
+  "suspectedCategoryScore": 0.667
+}
